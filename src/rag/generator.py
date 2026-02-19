@@ -1,0 +1,267 @@
+"""
+Generator — Fase 1.3 del progetto Pay Transparency Tool.
+
+Cos'è il Generator nel RAG?
+È il componente che prende i chunk trovati dal Retriever e li passa
+a un LLM (Llama 3.3 via Groq) per generare una risposta in linguaggio naturale.
+
+Il trucco del RAG è qui: invece di chiedere al LLM di rispondere
+"a memoria" (rischiando allucinazioni), gli diamo il CONTESTO
+estratto dai documenti reali e gli diciamo:
+"Rispondi SOLO basandoti su questo contesto."
+
+Schema:
+    Domanda utente + Chunk rilevanti → Prompt → LLM → Risposta con citazioni
+
+Concetti chiave:
+- System Prompt: le "regole" che il LLM deve seguire (es. "non inventare")
+- Contesto: i chunk del Retriever, formattati come testo
+- Confidence Score: una stima di quanto la risposta è affidabile,
+  basata su quanti chunk supportano la risposta
+- Citazione: riferimento al documento/articolo da cui viene la risposta
+"""
+
+from dataclasses import dataclass, field
+
+# Datapizza AI — client per chiamare Groq (API compatibile OpenAI)
+from datapizza.clients.openai import OpenAIClient
+
+# Moduli interni
+from src.rag.retriever import DirectiveRetriever, RetrievalResult
+from src.utils.config import Config
+from src.utils.logger import get_logger
+
+logger = get_logger("rag.generator")
+
+# --- System Prompt Anti-Allucinazione ---
+# Questo è il prompt più importante di tutto il progetto.
+# Dice al LLM COME deve comportarsi: rispondere solo dal contesto,
+# citare le fonti, ammettere quando non sa qualcosa.
+SYSTEM_PROMPT = """Sei un esperto legale specializzato nella Direttiva EU 2023/970 sulla trasparenza retributiva (Pay Transparency Directive).
+
+REGOLE VINCOLANTI:
+1. Rispondi ESCLUSIVAMENTE basandoti sul contesto fornito tra i tag <context> e </context>.
+2. Se il contesto non contiene informazioni sufficienti per rispondere, dì chiaramente: "Non ho trovato informazioni sufficienti nel contesto disponibile per rispondere a questa domanda."
+3. NON inventare mai informazioni, numeri, date o articoli non presenti nel contesto.
+4. Cita sempre l'articolo o la sezione della Direttiva da cui proviene la tua risposta.
+5. Rispondi nella stessa lingua della domanda (italiano se la domanda è in italiano, inglese se in inglese).
+6. Sii preciso e conciso. Preferisci citare il testo originale della Direttiva.
+
+FORMATO RISPOSTA:
+- Rispondi in modo chiaro e strutturato
+- Cita gli articoli rilevanti (es. "Secondo l'Articolo 9, paragrafo 1...")
+- Se più articoli sono rilevanti, menzionali tutti
+"""
+
+
+@dataclass
+class RAGResponse:
+    """
+    Risposta generata dal sistema RAG.
+
+    Contiene non solo il testo della risposta, ma anche metadati utili:
+    - I chunk usati come contesto (per verificabilità)
+    - Un punteggio di confidenza (per capire se fidarsi)
+    - La query originale (per tracciabilità)
+    """
+    answer: str                                      # La risposta generata dal LLM
+    query: str                                       # La domanda originale
+    confidence: float = 0.0                          # 0.0 = bassa, 1.0 = alta
+    sources: list[RetrievalResult] = field(default_factory=list)  # Chunk usati
+    context_used: str = ""                           # Il contesto formattato inviato al LLM
+    verified: bool | None = None                     # None = non verificato, True/False = esito
+    verification_reasoning: str = ""                 # Spiegazione della verifica
+
+
+class RAGGenerator:
+    """
+    Genera risposte basate sul contesto recuperato dal Retriever.
+
+    Pipeline interna:
+    1. Riceve query → passa al Retriever → ottiene chunk
+    2. Formatta i chunk come contesto testuale
+    3. Costruisce il prompt (system + contesto + domanda)
+    4. Chiama Llama 3.3 via Groq
+    5. Calcola un confidence score
+    6. Restituisce RAGResponse
+
+    Uso:
+        generator = RAGGenerator()
+        response = generator.generate("Qual è la deadline di trasposizione?")
+        print(response.answer)
+        print(f"Confidenza: {response.confidence:.0%}")
+    """
+
+    def __init__(self):
+        """
+        Inizializza il Generator con Retriever e client LLM.
+        """
+        config = Config.get_instance()
+        llm_config = config.llm_config
+
+        # --- Retriever: cerca i chunk rilevanti ---
+        self.retriever = DirectiveRetriever()
+
+        # --- Client LLM: Groq con Llama 3.3 ---
+        # OpenAIClient di Datapizza AI funziona con Groq grazie a base_url.
+        # Il system_prompt viene inviato come "istruzioni" al modello.
+        self.client = OpenAIClient(
+            api_key=config.api_key,
+            model=llm_config.get("model", "llama-3.3-70b-versatile"),
+            base_url=llm_config.get("base_url", "https://api.groq.com/openai/v1"),
+            temperature=llm_config.get("temperature", 0.1),
+            system_prompt=SYSTEM_PROMPT,
+        )
+
+        # Soglia minima di confidenza (sotto questa, la risposta è "incerta")
+        rag_config = config.rag_config
+        self.confidence_threshold = rag_config.get("confidence_threshold", 0.6)
+
+        logger.info("Generator inizializzato con Groq/Llama 3.3")
+
+    def generate(self, query: str, top_k: int | None = None, verify: bool = False) -> RAGResponse:
+        """
+        Genera una risposta alla domanda usando il pipeline RAG completo.
+
+        Args:
+            query: la domanda dell'utente
+            top_k: quanti chunk usare come contesto (default da config)
+            verify: se True, verifica la risposta con l'anti-allucinazione.
+                    Costa una chiamata LLM in più, ma aumenta l'affidabilità.
+
+        Returns:
+            RAGResponse con risposta, fonti, confidenza e (opzionale) verifica
+        """
+        logger.info(f"Generazione risposta per: '{query}'")
+
+        # Step 1: Recupera i chunk più rilevanti
+        results = self.retriever.retrieve(query, top_k=top_k)
+
+        if not results:
+            logger.warning("Nessun chunk trovato! Il vector DB potrebbe essere vuoto.")
+            return RAGResponse(
+                answer="Non ho trovato informazioni nel database. "
+                       "Assicurati di aver eseguito l'ingestion dei documenti.",
+                query=query,
+                confidence=0.0,
+                sources=[],
+            )
+
+        # Step 2: Formatta i chunk come contesto testuale
+        context = self._format_context(results)
+
+        # Step 3: Costruisci il prompt utente (contesto + domanda)
+        user_prompt = self._build_prompt(context, query)
+
+        # Step 4: Chiama il LLM
+        logger.info("Invio al LLM...")
+        response = self.client.invoke(user_prompt)
+        answer = response.text
+
+        # Step 5: Calcola confidence score
+        confidence = self._compute_confidence(results, answer)
+
+        logger.info(f"Risposta generata (confidenza: {confidence:.0%})")
+
+        rag_response = RAGResponse(
+            answer=answer,
+            query=query,
+            confidence=confidence,
+            sources=results,
+            context_used=context,
+        )
+
+        # Step 6 (opzionale): Verifica anti-allucinazione
+        if verify:
+            from src.rag.anti_hallucination import HallucinationChecker
+
+            checker = HallucinationChecker()
+            verification = checker.verify(rag_response)
+
+            rag_response.verified = verification.verified
+            rag_response.verification_reasoning = verification.reasoning
+
+            # Se la verifica trova problemi, abbassa la confidenza
+            if not verification.verified:
+                rag_response.confidence = min(rag_response.confidence, 0.3)
+                logger.warning(f"Verifica FALLITA: {verification.reasoning}")
+
+        return rag_response
+
+    def _format_context(self, results: list[RetrievalResult]) -> str:
+        """
+        Formatta i chunk del Retriever in un blocco di contesto per il LLM.
+
+        Ogni chunk viene numerato e separato, così il LLM può riferirsi
+        a "Fonte 1", "Fonte 2", ecc. nella sua risposta.
+
+        Esempio output:
+            [Fonte 1] (da: CELEX_32023L0970_EN_TXT.pdf)
+            Article 34 Transposition...
+
+            [Fonte 2] (da: CELEX_32023L0970_EN_TXT.pdf)
+            Article 9 Reporting on pay gap...
+        """
+        context_parts = []
+
+        for i, result in enumerate(results, 1):
+            # Estrai solo il nome del file dal percorso completo
+            source_name = result.source.split("/")[-1] if result.source else "sconosciuto"
+
+            context_parts.append(
+                f"[Fonte {i}] (da: {source_name})\n{result.text}"
+            )
+
+        return "\n\n---\n\n".join(context_parts)
+
+    def _build_prompt(self, context: str, query: str) -> str:
+        """
+        Costruisce il prompt utente da inviare al LLM.
+
+        Il prompt ha una struttura precisa:
+        1. Tag <context> con il contesto (i chunk)
+        2. La domanda dell'utente
+
+        I tag <context> servono a delimitare chiaramente dove inizia
+        e finisce il contesto, così il LLM non lo confonde con la domanda.
+        """
+        return f"""<context>
+{context}
+</context>
+
+Domanda: {query}"""
+
+    def _compute_confidence(self, results: list[RetrievalResult], answer: str) -> float:
+        """
+        Calcola un punteggio di confidenza per la risposta.
+
+        Logica semplice (v1):
+        - Parte da 0.5 (base)
+        - +0.1 per ogni chunk usato (più contesto = più sicurezza)
+        - -0.3 se la risposta contiene "non ho trovato" (ammette di non sapere)
+        - Cap a 1.0 massimo
+
+        In futuro (Fase 1.4) useremo un approccio più sofisticato
+        con verifica LLM-based (anti-allucinazione).
+        """
+        confidence = 0.5
+
+        # Più chunk rilevanti trovati = più sicurezza
+        # (fino a +0.5 con 5 chunk)
+        confidence += min(len(results) * 0.1, 0.5)
+
+        # Se la risposta ammette di non sapere, abbassa la confidenza
+        # (è comunque un segnale positivo: meglio ammettere che inventare)
+        no_info_phrases = [
+            "non ho trovato",
+            "informazioni sufficienti",
+            "non sono in grado",
+            "not found",
+            "insufficient information",
+        ]
+        answer_lower = answer.lower()
+        if any(phrase in answer_lower for phrase in no_info_phrases):
+            confidence -= 0.3
+
+        # Limita tra 0.0 e 1.0
+        return max(0.0, min(1.0, confidence))

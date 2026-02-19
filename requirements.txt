@@ -1,0 +1,22 @@
+# Framework AI per RAG e agent
+datapizza-ai>=0.0.9
+datapizza-ai-clients-google>=0.0.7      # Client per Google Gemini
+
+# Embeddings e Vector DB (tutto locale, gratis)
+fastembed>=0.3.0                         # Genera embeddings sul tuo Mac
+qdrant-client>=1.9.0                     # Vector database locale
+
+# Analisi dati
+pandas>=2.0.0                            # Manipolazione dati (tabelle, calcoli)
+openpyxl>=3.1.0                          # Lettura file Excel (.xlsx)
+
+# Interfaccia CLI
+rich>=13.0.0                             # Output bello nel terminale (tabelle, colori)
+
+# Configurazione
+PyYAML>=6.0                              # Lettura file .yaml
+python-dotenv>=1.0.0                     # Lettura file .env (API key)
+
+# Testing
+pytest>=7.0.0                            # Framework per test automatici
+pytest-cov>=4.0.0                        # Coverage report

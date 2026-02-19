@@ -1,0 +1,34 @@
+# Ambiente virtuale Python
+.venv/
+venv/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# File con segreti (API key, password)
+.env
+
+# Vector DB locale (dati generati, pesanti)
+data/vectordb/
+
+# PDF normativi (scaricati, non versionati)
+data/documents/*.pdf
+
+# File di build/distribuzione
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# Testing/Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# OS
+.DS_Store
