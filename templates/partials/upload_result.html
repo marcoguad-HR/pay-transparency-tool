@@ -1,0 +1,133 @@
+<!-- Bolla risultato analisi — sinistra, come messaggio assistente -->
+<div class="flex justify-start">
+    <div class="max-w-[85%] md:max-w-md bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-4 shadow-sm space-y-3">
+
+        <!-- Intestazione -->
+        <div class="border-b border-gray-200 pb-2">
+            <p class="text-sm font-semibold">Analisi di {{ filename }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ load_result.n_employees }} dipendenti ({{ load_result.n_male }} M, {{ load_result.n_female }} F)</p>
+        </div>
+
+        <!-- Warnings -->
+        {% if warnings %}
+        <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-1">
+            {% for w in warnings %}
+            <div class="flex items-start gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <p class="text-xs text-amber-800">{{ w }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Gap complessivi -->
+        <div class="space-y-2">
+            <!-- Mean gap -->
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Gap medio complessivo</span>
+                {% if result.overall_mean_gap.gap_pct|abs <= 5 %}
+                <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.overall_mean_gap.gap_pct) }}%</span>
+                {% else %}
+                <span class="text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.overall_mean_gap.gap_pct) }}%</span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-gray-400 -mt-1 pl-2">M: {{ "%.0f"|format(result.overall_mean_gap.male_avg) }} &euro; &mdash; F: {{ "%.0f"|format(result.overall_mean_gap.female_avg) }} &euro;</div>
+
+            <!-- Median gap -->
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Gap mediano complessivo</span>
+                {% if result.overall_median_gap.gap_pct|abs <= 5 %}
+                <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.overall_median_gap.gap_pct) }}%</span>
+                {% else %}
+                <span class="text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.overall_median_gap.gap_pct) }}%</span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-gray-400 -mt-1 pl-2">M: {{ "%.0f"|format(result.overall_median_gap.male_avg) }} &euro; &mdash; F: {{ "%.0f"|format(result.overall_median_gap.female_avg) }} &euro;</div>
+        </div>
+
+        <!-- Bonus gap -->
+        {% if result.bonus_gap %}
+        <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-600">Gap bonus</span>
+            {% if result.bonus_gap.is_significant %}
+            <span class="text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.bonus_gap.gap_pct) }}%</span>
+            {% else %}
+            <span class="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">{{ "%.1f"|format(result.bonus_gap.gap_pct) }}%</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Badge compliance -->
+        <div class="pt-1">
+            {% if result.is_compliant %}
+            <div class="inline-flex items-center gap-1.5 bg-green-100 text-green-800 border border-green-300 rounded-full px-3 py-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span class="text-xs font-bold tracking-wide">COMPLIANT</span>
+            </div>
+            {% else %}
+            <div class="inline-flex items-center gap-1.5 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span class="text-xs font-bold tracking-wide">NON COMPLIANT</span>
+            </div>
+            <p class="text-xs text-red-600 mt-1">{{ result.non_compliant_categories|length }} categori{{ "a" if result.non_compliant_categories|length == 1 else "e" }} con gap &gt; 5%</p>
+            {% endif %}
+        </div>
+
+        <!-- Dettagli per categoria (collapsible) -->
+        {% if result.category_gaps %}
+        <details class="pt-1">
+            <summary class="text-xs text-blue-600 cursor-pointer hover:text-blue-800 min-h-[44px] flex items-center">Dettagli per categoria ({{ result.category_gaps|length }})</summary>
+            <div class="mt-2 space-y-2">
+                {% for cat in result.category_gaps %}
+                <div class="bg-white rounded-lg px-3 py-2 border {% if cat.is_significant %}border-red-200{% else %}border-gray-200{% endif %}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-gray-700">{{ cat.department }} &mdash; {{ cat.level }}</span>
+                        {% if cat.is_significant %}
+                        <span class="text-xs font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">{{ "%.1f"|format(cat.gap_pct) }}%</span>
+                        {% else %}
+                        <span class="text-xs font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">{{ "%.1f"|format(cat.gap_pct) }}%</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">M: {{ cat.male_count }} ({{ "%.0f"|format(cat.male_avg) }} &euro;) &mdash; F: {{ cat.female_count }} ({{ "%.0f"|format(cat.female_avg) }} &euro;)</p>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+        <!-- Quartili (collapsible) -->
+        {% if result.quartiles %}
+        <details class="pt-1">
+            <summary class="text-xs text-blue-600 cursor-pointer hover:text-blue-800 min-h-[44px] flex items-center">Quartili retributivi</summary>
+            <div class="mt-2 space-y-2">
+                {% for q in result.quartiles %}
+                <div class="bg-white rounded-lg px-3 py-2 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-gray-700">Q{{ q.quartile }}</span>
+                        <span class="text-xs text-gray-400">{{ "%.0f"|format(q.min_salary) }} &ndash; {{ "%.0f"|format(q.max_salary) }} &euro;</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1.5">
+                        <!-- Barra visiva distribuzione genere -->
+                        <div class="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                            <div class="bg-blue-400 h-full" style="width: {{ q.male_pct }}%;"></div>
+                            <div class="bg-pink-400 h-full" style="width: {{ q.female_pct }}%;"></div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">M: {{ q.male_count }} ({{ q.male_pct }}%) &mdash; F: {{ q.female_count }} ({{ q.female_pct }}%)</p>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+
+    </div>
+</div>

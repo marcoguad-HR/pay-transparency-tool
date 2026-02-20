@@ -1,0 +1,17 @@
+<!-- Bolla errore — sinistra, sfondo ambra -->
+<div class="flex justify-start">
+    <div class="max-w-[85%] md:max-w-md bg-amber-50 text-amber-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-amber-200">
+        <div class="flex items-start gap-2">
+            <!-- Icona warning -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <div class="flex-1">
+                <p class="text-sm whitespace-pre-wrap">{{ error }}</p>
+                <p class="text-xs text-amber-400 mt-1 text-right">{{ timestamp }}</p>
+            </div>
+        </div>
+    </div>
+</div>
