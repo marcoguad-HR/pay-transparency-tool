@@ -6,24 +6,24 @@
     <!-- Header (fixed top) -->
     <header class="bg-blue-600 text-white px-4 py-3 shadow-md flex-shrink-0">
         <h1 class="text-lg font-semibold leading-tight">Pay Transparency Assistant</h1>
-        <p class="text-blue-100 text-xs mt-0.5">Direttiva EU 2023/970</p>
+        <p class="text-blue-50 text-xs mt-0.5">Direttiva EU 2023/970</p>
     </header>
 
     <!-- Messages area (scrollable middle) -->
-    <main id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <main id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" role="log" aria-live="polite" aria-atomic="false">
 
         <!-- Messaggio di benvenuto -->
         <div class="flex justify-start">
             <div class="max-w-[85%] md:max-w-md bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                 <p class="text-sm whitespace-pre-wrap">Ciao! Sono il tuo assistente per la trasparenza retributiva. Puoi chiedermi informazioni sulla Direttiva EU 2023/970 o analizzare i tuoi dati retributivi. Prova a scrivere una domanda!</p>
-                <p class="text-xs text-gray-400 mt-1 text-right">ora</p>
+                <p class="text-xs text-gray-500 mt-1 text-right">ora</p>
             </div>
         </div>
 
     </main>
 
     <!-- Thinking indicator -->
-    <div id="thinking" class="htmx-indicator items-center justify-center gap-2 px-4 py-2 bg-gray-50 flex-shrink-0">
+    <div id="thinking" class="htmx-indicator items-center justify-center gap-2 px-4 py-2 bg-gray-50 flex-shrink-0" role="status" aria-live="polite">
         <div class="flex items-center gap-1.5">
             <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
             <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
@@ -48,10 +48,12 @@
                    placeholder="Scrivi un messaggio..."
                    required
                    autocomplete="off"
+                   aria-label="Scrivi un messaggio"
                    class="flex-1 min-h-[44px] px-4 py-2 bg-gray-100 rounded-full border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-sm text-gray-900 placeholder-gray-400">
 
             <!-- Send button -->
             <button type="submit"
+                    aria-label="Invia messaggio"
                     class="min-w-[44px] min-h-[44px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full transition-colors flex-shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -69,7 +71,7 @@
               hx-on::after-request="this.reset(); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
               class="mt-2">
 
-            <label class="flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+            <label class="flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-400">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
@@ -79,6 +81,7 @@
                 <input type="file"
                        name="file"
                        accept=".csv,.xlsx,.xls"
+                       aria-label="Carica file CSV o Excel"
                        class="hidden"
                        onchange="this.closest('form').requestSubmit();">
             </label>

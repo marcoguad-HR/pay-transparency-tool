@@ -117,7 +117,7 @@
                     </div>
                     <div class="flex items-center gap-2 mt-1.5">
                         <!-- Barra visiva distribuzione genere -->
-                        <div class="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                        <div class="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden flex" role="img" aria-label="Distribuzione: {{ q.male_pct }}% uomini, {{ q.female_pct }}% donne">
                             <div class="bg-blue-400 h-full" style="width: {{ q.male_pct }}%;"></div>
                             <div class="bg-pink-400 h-full" style="width: {{ q.female_pct }}%;"></div>
                         </div>
