@@ -48,24 +48,25 @@ def health_check():
 
 
 def _check_vectordb() -> str:
-    """Verifica che il vector database (Qdrant) sia accessibile."""
+    """
+    Verifica che il vector database directory esista e contenga file.
+
+    Usa un semplice controllo del filesystem anziche' creare un QdrantClient,
+    che aprirebbe file lock esclusivi e causerebbe conflitti con il client
+    gia' in uso dal retriever.
+    """
     try:
+        from pathlib import Path
+
         from src.utils.config import Config
 
         config = Config.get_instance()
         vs_config = config.vectorstore_config
-        location = vs_config.get("location", "./data/vectordb")
-        collection_name = vs_config.get("collection_name", "eu_directive_2023_970")
+        location = Path(vs_config.get("location", "./data/vectordb"))
 
-        from qdrant_client import QdrantClient
-
-        client = QdrantClient(path=location)
-        collections = [c.name for c in client.get_collections().collections]
-
-        if collection_name in collections:
+        if location.exists() and any(location.iterdir()):
             return "ok"
-        else:
-            return f"collection '{collection_name}' not found"
+        return "empty"
 
     except Exception as e:
         logger.warning(f"Health check vectordb fallito: {e}")

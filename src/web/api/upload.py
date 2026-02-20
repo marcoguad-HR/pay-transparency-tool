@@ -24,6 +24,9 @@ router = APIRouter()
 # Estensioni file accettate
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
+# Limite dimensione file: 10 MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
+
 
 @router.post("/api/upload", response_class=HTMLResponse)
 def upload_file(request: Request, file: UploadFile = File(...)):
@@ -55,16 +58,35 @@ def upload_file(request: Request, file: UploadFile = File(...)):
                 ),
             },
         ).body.decode()
-        return HTMLResponse(content=error_html)
+        return HTMLResponse(content=error_html, status_code=422)
 
     # --- Salva il file in /tmp ---
     tmp_path = None
     try:
+        # Leggi il contenuto e verifica la dimensione
+        content = file.file.read()
+
+        if len(content) > MAX_FILE_SIZE:
+            logger.warning(
+                f"Upload rifiutato: file '{filename}' troppo grande "
+                f"({len(content)} bytes, limite {MAX_FILE_SIZE} bytes)"
+            )
+            error_html = templates.TemplateResponse(
+                "partials/upload_error.html",
+                {
+                    "request": request,
+                    "error": (
+                        f"File troppo grande ({len(content) // (1024 * 1024)} MB). "
+                        f"Il limite massimo e' {MAX_FILE_SIZE // (1024 * 1024)} MB."
+                    ),
+                },
+            ).body.decode()
+            return HTMLResponse(content=error_html, status_code=422)
+
         # Crea un file temporaneo con la stessa estensione
         with tempfile.NamedTemporaryFile(
             delete=False, suffix=suffix, prefix="paytool_"
         ) as tmp:
-            content = file.file.read()
             tmp.write(content)
             tmp_path = tmp.name
 
@@ -105,7 +127,7 @@ def upload_file(request: Request, file: UploadFile = File(...)):
             "partials/upload_error.html",
             {"request": request, "error": str(e)},
         ).body.decode()
-        return HTMLResponse(content=error_html)
+        return HTMLResponse(content=error_html, status_code=422)
 
     except Exception as e:
         logger.error(f"Errore durante upload/analisi di '{filename}': {e}", exc_info=True)
@@ -116,7 +138,7 @@ def upload_file(request: Request, file: UploadFile = File(...)):
                 "error": "Si e' verificato un errore durante l'analisi. Verifica il formato del file.",
             },
         ).body.decode()
-        return HTMLResponse(content=error_html)
+        return HTMLResponse(content=error_html, status_code=500)
 
     finally:
         # Pulizia file temporaneo

@@ -13,6 +13,7 @@ Concetti usati:
 - Jinja2Templates: rendering di template HTML con variabili
 """
 
+import threading
 from datetime import datetime
 
 from fastapi import APIRouter, Form, Request
@@ -25,9 +26,22 @@ logger = get_logger("web.api.chat")
 
 router = APIRouter()
 
+# Lock per inizializzazione thread-safe del PayTransparencyRouter
+_router_lock = threading.Lock()
+
+
+def _get_router(app_state):
+    """Lazy init thread-safe del PayTransparencyRouter (double-checked locking)."""
+    if not hasattr(app_state, "agent_router"):
+        with _router_lock:
+            if not hasattr(app_state, "agent_router"):
+                from src.agent.router import PayTransparencyRouter
+                app_state.agent_router = PayTransparencyRouter()
+    return app_state.agent_router
+
 
 @router.post("/api/chat", response_class=HTMLResponse)
-def chat(request: Request, text: str = Form(...)):
+def chat(request: Request, text: str = Form(..., min_length=1)):
     """
     Endpoint chat per HTMX.
 
@@ -48,15 +62,10 @@ def chat(request: Request, text: str = Form(...)):
         {"request": request, "role": "user", "text": text, "timestamp": timestamp},
     ).body.decode()
 
-    # Chiama l'agent
+    # Chiama l'agent (lazy init thread-safe via _get_router)
     try:
-        from src.agent.router import PayTransparencyRouter
-
-        # Lazy init: riusa il router se gia' creato, altrimenti lo crea
-        if not hasattr(request.app.state, "agent_router"):
-            request.app.state.agent_router = PayTransparencyRouter()
-
-        answer = request.app.state.agent_router.ask(text)
+        agent_router = _get_router(request.app.state)
+        answer = agent_router.ask(text)
 
         assistant_html = templates.TemplateResponse(
             "partials/chat_message.html",
@@ -72,7 +81,7 @@ def chat(request: Request, text: str = Form(...)):
             "partials/chat_error.html",
             {"request": request, "error": str(e), "timestamp": timestamp},
         ).body.decode()
-        return HTMLResponse(content=user_bubble_html + error_html)
+        return HTMLResponse(content=user_bubble_html + error_html, status_code=429)
 
     except Exception as e:
         logger.error(f"Errore durante chat: {e}", exc_info=True)
@@ -84,4 +93,4 @@ def chat(request: Request, text: str = Form(...)):
                 "timestamp": timestamp,
             },
         ).body.decode()
-        return HTMLResponse(content=user_bubble_html + error_html)
+        return HTMLResponse(content=user_bubble_html + error_html, status_code=500)

@@ -13,6 +13,7 @@ Il server gira sulla root del progetto, quindi tutti gli import
 come `from src.agent.router import ...` funzionano correttamente.
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -25,20 +26,33 @@ from src.web.api import chat, upload, health
 # CONFIGURAZIONE APP
 # =============================================================================
 
-app = FastAPI(
-    title="Pay Transparency Tool",
-    description="EU Directive 2023/970 compliance tool — RAG + Pay Gap Analysis",
-    version="0.1.0",
-)
-
 # --- Percorsi ---
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown lifecycle. Crea directory necessarie al boot."""
+    # Crea la directory templates se non esiste (graceful per Task 2)
+    TEMPLATES_DIR.mkdir(exist_ok=True)
+    yield
+
+
+# CORS non e' configurato intenzionalmente: il frontend e' servito dalla
+# stessa origine (Jinja2 templates), quindi non servono header CORS.
+app = FastAPI(
+    title="Pay Transparency Tool",
+    description="EU Directive 2023/970 compliance tool — RAG + Pay Gap Analysis",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
 # --- Templates Jinja2 ---
-# Crea la directory templates se non esiste (graceful per Task 2)
-TEMPLATES_DIR.mkdir(exist_ok=True)
+# Nota: la directory viene creata nel lifespan event, ma Jinja2Templates
+# non richiede che esista al momento della creazione dell'oggetto —
+# verifica l'esistenza solo al primo render.
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Salva templates in app.state cosi' tutti gli endpoint possono accedervi

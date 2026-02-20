@@ -4,8 +4,9 @@ Pydantic Schemas — Modelli di validazione per le API web.
 Definisce i modelli di request/response usati dagli endpoint FastAPI.
 Pydantic valida automaticamente i dati in ingresso e serializza quelli in uscita.
 
-Nota: gli endpoint HTMX restituiscono HTML (non JSON), quindi questi schema
-servono principalmente per validazione interna e documentazione OpenAPI.
+Nota: gli endpoint HTMX restituiscono HTML (non JSON) e usano Form(...) per
+la validazione input. Questi schema NON sono wired negli endpoint; servono
+esclusivamente come riferimento per la documentazione OpenAPI (/docs).
 """
 
 from datetime import datetime
