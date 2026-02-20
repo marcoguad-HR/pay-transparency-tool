@@ -1,5 +1,5 @@
 # Framework AI per RAG e agent
-datapizza-ai>=0.0.9
+datapizza-ai==0.0.9
 datapizza-ai-clients-google>=0.0.7      # Client per Google Gemini
 
 # Embeddings e Vector DB (tutto locale, gratis)
@@ -16,6 +16,15 @@ rich>=13.0.0                             # Output bello nel terminale (tabelle, 
 # Configurazione
 PyYAML>=6.0                              # Lettura file .yaml
 python-dotenv>=1.0.0                     # Lettura file .env (API key)
+
+# Ricerca ibrida (BM25 keyword + vector search)
+rank-bm25>=0.2.2                         # Indice BM25 per fusion retrieval
+
+# Web API
+fastapi>=0.109.0                         # Framework web per API backend
+uvicorn[standard]>=0.27.0               # Server ASGI per FastAPI
+jinja2>=3.1.0                            # Template engine per HTML partials
+python-multipart>=0.0.6                  # Parsing form data e file upload
 
 # Testing
 pytest>=7.0.0                            # Framework per test automatici
