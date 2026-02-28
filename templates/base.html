@@ -15,13 +15,41 @@
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
-        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+        document.addEventListener('htmx:beforeSwap', function(evt) {
             // Allow HTMX to swap content for 4xx and 5xx responses
             // (our error partials need to be displayed)
             if (evt.detail.xhr.status >= 400) {
                 evt.detail.shouldSwap = true;
                 evt.detail.isError = false;
             }
+        });
+
+        // Handle timeout (status 0) and network errors — no server response to swap,
+        // so we inject an error bubble client-side
+        document.addEventListener('htmx:responseError', function(evt) {
+            var target = document.getElementById('chat-messages');
+            if (!target) return;
+
+            var status = evt.detail.xhr ? evt.detail.xhr.status : -1;
+            var msg = (status === 0)
+                ? 'La richiesta ha impiegato troppo tempo o si \u00e8 verificato un errore di rete. Riprova.'
+                : 'Errore imprevisto (codice ' + status + '). Riprova tra qualche istante.';
+
+            var errorHtml =
+                '<div class="flex justify-start">' +
+                '<div class="max-w-[85%] md:max-w-md bg-amber-50 text-amber-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-amber-200">' +
+                '<div class="flex items-start gap-2">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>' +
+                '<line x1="12" y1="9" x2="12" y2="13"></line>' +
+                '<line x1="12" y1="17" x2="12.01" y2="17"></line>' +
+                '</svg>' +
+                '<div class="flex-1">' +
+                '<p class="text-sm whitespace-pre-wrap">' + msg + '</p>' +
+                '</div></div></div></div>';
+
+            target.insertAdjacentHTML('beforeend', errorHtml);
+            target.scrollTop = target.scrollHeight;
         });
     </script>
 

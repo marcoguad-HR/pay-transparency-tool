@@ -28,8 +28,10 @@ from datapizza.clients.openai import OpenAIClient
 
 # Moduli interni
 from src.rag.retriever import DirectiveRetriever, RetrievalResult
+from src.rag.query_transformer import QueryTransformer
 from src.utils.config import Config
 from src.utils.logger import get_logger
+from src.utils.rate_limiter import invoke_with_retry
 
 logger = get_logger("rag.generator")
 
@@ -102,6 +104,9 @@ class RAGGenerator:
         # --- Retriever: cerca i chunk rilevanti ---
         self.retriever = DirectiveRetriever()
 
+        # --- Query Transformer: step-back prompting (opzionale) ---
+        self.query_transformer = QueryTransformer()
+
         # --- Client LLM: Groq con Llama 3.3 ---
         # OpenAIClient di Datapizza AI funziona con Groq grazie a base_url.
         # Il system_prompt viene inviato come "istruzioni" al modello.
@@ -116,6 +121,9 @@ class RAGGenerator:
         # Soglia minima di confidenza (sotto questa, la risposta è "incerta")
         rag_config = config.rag_config
         self.confidence_threshold = rag_config.get("confidence_threshold", 0.6)
+
+        # Cache per HallucinationChecker (lazy init alla prima verifica)
+        self._checker = None
 
         logger.info("Generator inizializzato con Groq/Llama 3.3")
 
@@ -134,8 +142,24 @@ class RAGGenerator:
         """
         logger.info(f"Generazione risposta per: '{query}'")
 
-        # Step 1: Recupera i chunk più rilevanti
-        results = self.retriever.retrieve(query, top_k=top_k)
+        # Step 0.5: Trasformazione query (se abilitata)
+        transformed = self.query_transformer.transform(query)
+
+        # Step 1: Recupera i chunk più rilevanti con la query originale
+        results = self.retriever.retrieve(transformed.original, top_k=top_k)
+
+        # Step 1.5: Se step-back query disponibile, recupera contesto aggiuntivo
+        if transformed.step_back:
+            step_back_results = self.retriever.retrieve(transformed.step_back, top_k=top_k)
+            # Merge: deduplica per chunk_id, mantieni l'ordine
+            seen_ids = {r.chunk_id for r in results}
+            for r in step_back_results:
+                if r.chunk_id not in seen_ids:
+                    results.append(r)
+                    seen_ids.add(r.chunk_id)
+            # Limita per non sovraccaricare il contesto
+            k = top_k or self.retriever.top_k
+            results = results[:int(k * 1.5)]
 
         if not results:
             logger.warning("Nessun chunk trovato! Il vector DB potrebbe essere vuoto.")
@@ -155,7 +179,7 @@ class RAGGenerator:
 
         # Step 4: Chiama il LLM
         logger.info("Invio al LLM...")
-        response = self.client.invoke(user_prompt)
+        response = invoke_with_retry(self.client, user_prompt)
         answer = response.text
 
         # Step 5: Calcola confidence score
@@ -173,10 +197,10 @@ class RAGGenerator:
 
         # Step 6 (opzionale): Verifica anti-allucinazione
         if verify:
-            from src.rag.anti_hallucination import HallucinationChecker
-
-            checker = HallucinationChecker()
-            verification = checker.verify(rag_response)
+            if self._checker is None:
+                from src.rag.anti_hallucination import HallucinationChecker
+                self._checker = HallucinationChecker()
+            verification = self._checker.verify(rag_response)
 
             rag_response.verified = verification.verified
             rag_response.verification_reasoning = verification.reasoning
@@ -208,8 +232,9 @@ class RAGGenerator:
             # Estrai solo il nome del file dal percorso completo
             source_name = result.source.split("/")[-1] if result.source else "sconosciuto"
 
+            header_info = f" | {result.article_header}" if result.article_header else ""
             context_parts.append(
-                f"[Fonte {i}] (da: {source_name})\n{result.text}"
+                f"[Fonte {i}] (da: {source_name}{header_info})\n{result.text}"
             )
 
         return "\n\n---\n\n".join(context_parts)

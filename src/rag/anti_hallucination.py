@@ -37,6 +37,7 @@ from datapizza.clients.openai import OpenAIClient
 from src.rag.generator import RAGResponse
 from src.utils.config import Config
 from src.utils.logger import get_logger
+from src.utils.rate_limiter import invoke_with_retry
 
 logger = get_logger("rag.anti_hallucination")
 
@@ -139,7 +140,7 @@ class HallucinationChecker:
         prompt = self._build_verification_prompt(rag_response)
 
         # Chiedi al LLM di verificare
-        response = self.client.invoke(prompt)
+        response = invoke_with_retry(self.client, prompt)
         raw_text = response.text
 
         # Parsa il JSON dalla risposta del LLM

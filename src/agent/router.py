@@ -27,6 +27,7 @@ Concetti Python usati qui:
 - Type annotations + Annotated: descrivono i parametri per il LLM
 """
 
+import threading
 from typing import Annotated
 
 from datapizza.agents import Agent
@@ -35,8 +36,27 @@ from datapizza.tools import tool
 
 from src.utils.config import Config
 from src.utils.logger import get_logger
+from src.utils.rate_limiter import RateLimitError
 
 logger = get_logger("agent.router")
+
+# =============================================================================
+# SINGLETON RAGGenerator — evita ricreazione di FastEmbed/Qdrant/BM25 ad ogni
+# tool call e previene deadlock sul file lock di Qdrant.
+# =============================================================================
+_generator_instance = None
+_generator_lock = threading.Lock()
+
+
+def _get_generator():
+    """Lazy init thread-safe del RAGGenerator (double-checked locking)."""
+    global _generator_instance
+    if _generator_instance is None:
+        with _generator_lock:
+            if _generator_instance is None:
+                from src.rag.generator import RAGGenerator
+                _generator_instance = RAGGenerator()
+    return _generator_instance
 
 
 # =============================================================================
@@ -57,9 +77,11 @@ Hai a disposizione due strumenti:
    Usa questo strumento quando l'utente vuole analizzare dati salariali da un file CSV/Excel.
 
 REGOLE:
-- Se la domanda riguarda la normativa → usa query_directive
-- Se la domanda riguarda i dati aziendali → usa analyze_pay_gap
-- Se la domanda è ibrida (es. "Il nostro gap del 7% è conforme?") → usa ENTRAMBI gli strumenti
+- Se la domanda riguarda la normativa → usa query_directive UNA SOLA VOLTA
+- Se la domanda riguarda i dati aziendali → usa analyze_pay_gap UNA SOLA VOLTA
+- Se la domanda è ibrida (es. "Il nostro gap del 7% è conforme?") → usa ENTRAMBI gli strumenti, ciascuno UNA SOLA VOLTA
+- NON chiamare lo stesso strumento piu' di una volta per la stessa domanda
+- Dopo aver ricevuto il risultato di un tool, formula IMMEDIATAMENTE la risposta finale basandoti su quel risultato
 - Rispondi sempre in italiano, in modo chiaro e professionale
 - Quando usi risultati di analyze_pay_gap, cita i numeri specifici
 - Quando usi risultati di query_directive, cita gli articoli della Direttiva
@@ -95,10 +117,8 @@ def query_directive(
     """
     logger.info(f"[Tool] query_directive: '{question}'")
 
-    from src.rag.generator import RAGGenerator
-
-    generator = RAGGenerator()
-    response = generator.generate(question, verify=True)
+    generator = _get_generator()
+    response = generator.generate(question, verify=False)
 
     # Formatta il risultato in modo che l'agent possa usarlo
     result_parts = [
@@ -330,7 +350,7 @@ class PayTransparencyRouter:
             client=client,
             system_prompt=AGENT_SYSTEM_PROMPT,
             tools=[query_directive, analyze_pay_gap],
-            max_steps=5,           # Massimo 5 cicli tool-call (sicurezza)
+            max_steps=2,           # Massimo 2 cicli tool-call (normativa + dati)
             terminate_on_text=True, # Si ferma quando genera testo (non tool call)
         )
 
@@ -350,7 +370,24 @@ class PayTransparencyRouter:
         """
         logger.info(f"Domanda all'agent: '{question}'")
 
-        result = self.agent.run(question)
+        try:
+            result = self.agent.run(question)
+        except Exception as e:
+            error_str = str(e).lower()
+            if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
+                raise RateLimitError(
+                    "Rate limit Groq superato. L'agent effettua piu' chiamate LLM per query. "
+                    "Attendi qualche minuto e riprova."
+                ) from e
+            # Llama 3.3 a volte genera tool call in formato sbagliato
+            # (<function=...> invece di JSON). Groq rifiuta con 400.
+            # Fallback: bypassiamo l'agent e chiamiamo il RAG direttamente.
+            if "tool_use_failed" in error_str or "failed to call a function" in error_str:
+                logger.warning(f"Tool call format error, fallback a RAG diretto: {e}")
+                generator = _get_generator()
+                response = generator.generate(question, verify=False)
+                return response.answer
+            raise
 
         # result.text contiene la risposta finale dell'agent
         answer = result.text

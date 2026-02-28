@@ -17,6 +17,9 @@ rich>=13.0.0                             # Output bello nel terminale (tabelle, 
 PyYAML>=6.0                              # Lettura file .yaml
 python-dotenv>=1.0.0                     # Lettura file .env (API key)
 
+# PDF extraction
+PyMuPDF>=1.24.0                          # Estrazione testo da PDF (import fitz)
+
 # Ricerca ibrida (BM25 keyword + vector search)
 rank-bm25>=0.2.2                         # Indice BM25 per fusion retrieval
 
@@ -29,3 +32,11 @@ python-multipart>=0.0.6                  # Parsing form data e file upload
 # Testing
 pytest>=7.0.0                            # Framework per test automatici
 pytest-cov>=4.0.0                        # Coverage report
+
+# Dipendenze transitive critiche — constraint per prevenire corruzione venv
+# Catena: datapizza-ai -> openai -> httpx -> httpcore -> anyio
+# Dopo qualsiasi modifica: python scripts/verify_imports.py
+anyio>=4.5.0,<5
+httpx>=0.27.0,<1
+httpcore>=1.0.0,<2
+openai>=2.0.0,<3

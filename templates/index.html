@@ -40,7 +40,8 @@
               hx-target="#chat-messages"
               hx-swap="beforeend"
               hx-indicator="#thinking"
-              hx-on::after-request="this.reset(); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
+              hx-request='{"timeout": 120000}'
+              hx-on::after-request="if(event.detail.successful){this.reset();} document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
               class="flex items-center gap-2">
 
             <input type="text"
@@ -68,7 +69,7 @@
               hx-swap="beforeend"
               hx-encoding="multipart/form-data"
               hx-indicator="#thinking"
-              hx-on::after-request="this.reset(); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
+              hx-on::after-request="if(event.detail.successful){this.reset();} document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
               class="mt-2">
 
             <label class="flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-400">

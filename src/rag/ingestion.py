@@ -23,6 +23,8 @@ Concetti chiave:
   (molto più veloce di cercare parola per parola).
 """
 
+import pickle
+import re
 from pathlib import Path
 
 # PyMuPDF — libreria per leggere i PDF ed estrarre il testo
@@ -146,11 +148,17 @@ class DirectiveIngestion:
         # Step 3: Chunking — albero → lista di chunk
         chunks = self._split_into_chunks(node, source=pdf_path)
 
+        # Step 3.5: Header contestuali — aggiunge articolo/sezione a ogni chunk
+        chunks = self._add_chunk_headers(chunks)
+
         # Step 4: Embedding — testo di ogni chunk → vettore numerico
         chunks = self._embed_chunks(chunks)
 
         # Step 5: Salvataggio in Qdrant
         self._store_chunks(chunks)
+
+        # Step 6: Costruzione indice BM25 per fusion retrieval
+        self._build_bm25_index(chunks)
 
         logger.info(f"Ingestion completata! {len(chunks)} chunk salvati in Qdrant")
         return len(chunks)
@@ -237,6 +245,54 @@ class DirectiveIngestion:
 
         return chunks
 
+    def _add_chunk_headers(self, chunks: list[Chunk]) -> list[Chunk]:
+        """
+        Step 3.5: Aggiunge header contestuali a ogni chunk.
+
+        La Direttiva EU 2023/970 ha una struttura chiara:
+        - "Article N" seguito da un titolo
+        - Capitoli (CHAPTER I, II, ...)
+        - Recital numerati (1), (2), ...
+
+        Per ogni chunk, rileviamo a quale articolo/sezione appartiene
+        e lo preponiamo al testo. Questo migliora il retrieval perche'
+        l'embedding cattura il contesto strutturale, non solo il testo grezzo.
+
+        Esempio:
+            Prima:  "Member States shall ensure that employers with..."
+            Dopo:   "[Article 9 - Pay reporting]\nMember States shall ensure..."
+        """
+        logger.info("Step 3.5: Aggiunta header contestuali ai chunk...")
+
+        # Pattern per rilevare gli header degli articoli nella Direttiva EU
+        # Formato tipico: "Article 10\nJoint pay assessment"
+        article_pattern = re.compile(
+            r'Article\s+(\d+)\s*\n\s*([^\n]+)', re.IGNORECASE
+        )
+
+        current_header = ""
+        headers_found = 0
+
+        for chunk in chunks:
+            # Cerca se questo chunk contiene un nuovo header di articolo
+            match = article_pattern.search(chunk.text)
+            if match:
+                art_num = match.group(1)
+                art_title = match.group(2).strip()
+                current_header = f"Article {art_num} - {art_title}"
+                headers_found += 1
+
+            # Preponi l'header al testo del chunk e salvalo nei metadata
+            if current_header:
+                chunk.text = f"[{current_header}]\n{chunk.text}"
+                if chunk.metadata is None:
+                    chunk.metadata = {}
+                chunk.metadata["article_header"] = current_header
+
+        logger.info(f"  {headers_found} articoli rilevati, "
+                    f"header aggiunti a {len(chunks)} chunk")
+        return chunks
+
     def _embed_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """
         Step 4: Trasforma il testo di ogni chunk in un vettore numerico.
@@ -311,6 +367,52 @@ class DirectiveIngestion:
 
         logger.info(f"  {len(chunks)} chunk salvati nella collection "
                     f"'{self.collection_name}'")
+
+    def _build_bm25_index(self, chunks: list[Chunk]):
+        """
+        Step 6: Costruisce e salva un indice BM25 per la fusion retrieval.
+
+        BM25 e' un algoritmo classico di ranking basato su keyword:
+        trova i documenti che contengono le parole esatte della query,
+        pesate per frequenza (TF) e rarità (IDF).
+
+        Combinato con la ricerca vettoriale (dense), cattura la terminologia
+        legale specifica ("transposition deadline", "Article 10") che gli
+        embedding potrebbero non matchare esattamente.
+
+        L'indice viene salvato come pickle accanto al vectordb.
+        """
+        from rank_bm25 import BM25Okapi
+
+        logger.info("Step 6/6: Costruzione indice BM25...")
+
+        # Tokenizzazione semplice: lowercase + split su spazi
+        # Sufficiente per testo legale in inglese
+        corpus = [chunk.text.lower().split() for chunk in chunks]
+
+        bm25 = BM25Okapi(corpus)
+
+        # Salva indice BM25 + testi e metadata dei chunk per il retrieval
+        bm25_data = {
+            "bm25": bm25,
+            "chunk_texts": [chunk.text for chunk in chunks],
+            "chunk_ids": [str(chunk.id) for chunk in chunks],
+            "chunk_metadata": [chunk.metadata or {} for chunk in chunks],
+        }
+
+        bm25_path = Path(self._get_bm25_path())
+        bm25_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(bm25_path, "wb") as f:
+            pickle.dump(bm25_data, f)
+
+        logger.info(f"  Indice BM25 salvato: {bm25_path}")
+
+    def _get_bm25_path(self) -> str:
+        """Restituisce il percorso del file indice BM25."""
+        config = Config.get_instance()
+        vs_path = config.vectorstore_config.get("location", "./data/vectordb")
+        return f"{vs_path}/bm25_index.pkl"
 
     def reset(self):
         """

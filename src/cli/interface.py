@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from src.utils.logger import get_logger
+from src.utils.rate_limiter import RateLimitError
 
 logger = get_logger("cli")
 console = Console()
@@ -44,6 +45,9 @@ class CLI:
             handler(args)
         except KeyboardInterrupt:
             console.print("\n[dim]Interrotto dall'utente.[/dim]")
+        except RateLimitError as e:
+            console.print(f"[yellow bold]Rate Limit:[/yellow bold] {e}")
+            console.print("[dim]Suggerimento: attendi qualche minuto prima di riprovare.[/dim]")
         except Exception as e:
             console.print(f"[red bold]Errore:[/red bold] {e}")
             logger.error(f"Errore nel comando '{args.command}': {e}", exc_info=True)
@@ -159,6 +163,9 @@ class CLI:
 
             except KeyboardInterrupt:
                 break
+            except RateLimitError as e:
+                console.print(f"[yellow]Rate Limit: {e}[/yellow]")
+                console.print("[dim]Attendi qualche minuto prima di riprovare.[/dim]")
             except Exception as e:
                 console.print(f"[red]Errore: {e}[/red]")
                 logger.error(f"Errore nell'agent interattivo: {e}", exc_info=True)

@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.web.api import chat, upload, health
 
@@ -34,9 +35,14 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown lifecycle. Crea directory necessarie al boot."""
-    # Crea la directory templates se non esiste (graceful per Task 2)
+    """Startup/shutdown lifecycle. Crea directory e precarica il pipeline RAG."""
     TEMPLATES_DIR.mkdir(exist_ok=True)
+
+    # Nota: il preload del PayTransparencyRouter e' disabilitato perche'
+    # puo' bloccare il boot se Groq API e' lenta o irraggiungibile.
+    # Sia il router che il RAGGenerator si inizializzano lazy alla prima query
+    # (via singleton con double-checked locking).
+
     yield
 
 
@@ -48,6 +54,21 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+# --- Cache-control middleware ---
+# Previene template stantii nel browser dopo deploy di fix frontend.
+class NoCacheHTMLMiddleware(BaseHTTPMiddleware):
+    """Set Cache-Control: no-cache on HTML responses."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if "text/html" in response.headers.get("content-type", ""):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        return response
+
+
+app.add_middleware(NoCacheHTMLMiddleware)
 
 # --- Templates Jinja2 ---
 # Nota: la directory viene creata nel lifespan event, ma Jinja2Templates

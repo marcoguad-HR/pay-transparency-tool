@@ -18,3 +18,5 @@ rag:
   chunk_overlap: 200
   top_k: 5
   confidence_threshold: 0.6
+  fusion_weight: 0.5                  # 0.0=solo vettoriale, 1.0=solo BM25
+  query_transform_enabled: false      # Step-back prompting (costa 1 LLM call extra)
