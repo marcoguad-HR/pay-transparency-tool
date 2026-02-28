@@ -1,17 +1,23 @@
 {% if role == "user" %}
 <!-- Bolla utente — destra, sfondo blu -->
 <div class="flex justify-end">
-    <div class="max-w-[85%] md:max-w-md bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm">
-        <p class="text-sm whitespace-pre-wrap">{{ text }}</p>
+    <div class="max-w-[85%] md:max-w-2xl bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm">
+        <p class="text-sm whitespace-pre-wrap leading-relaxed">{{ text }}</p>
         <p class="text-xs text-blue-200 mt-1 text-right">{{ timestamp }}</p>
     </div>
 </div>
 {% else %}
-<!-- Bolla assistente — sinistra, sfondo grigio -->
+<!-- Bolla assistente — sinistra, sfondo bianco, testo markdown -->
 <div class="flex justify-start">
-    <div class="max-w-[85%] md:max-w-md bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-        <p class="text-sm whitespace-pre-wrap">{{ text }}</p>
-        <p class="text-xs text-gray-500 mt-1 text-right">{{ timestamp }}</p>
+    <div class="max-w-[85%] md:max-w-2xl bg-white text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100">
+        <div class="markdown-body text-sm leading-relaxed"></div>
+        <script>
+            (function() {
+                var bubble = document.currentScript.previousElementSibling;
+                bubble.innerHTML = marked.parse({{ text | tojson }});
+            })();
+        </script>
+        <p class="text-xs text-gray-400 mt-2 text-right">{{ timestamp }}</p>
     </div>
 </div>
 {% endif %}
