@@ -1,84 +1,245 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex flex-col h-screen max-w-2xl mx-auto">
 
-    <!-- Header (fixed top) -->
-    <header class="bg-blue-600 text-white px-4 py-3 shadow-md flex-shrink-0">
-        <h1 class="text-lg font-semibold leading-tight">Pay Transparency Assistant</h1>
-        <p class="text-blue-50 text-xs mt-0.5">Direttiva EU 2023/970</p>
-    </header>
+<!-- ================================================================
+     FIXED HEADER — logo + tab navigation
+     ================================================================ -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
 
-    <!-- Messages area (scrollable middle) -->
-    <main id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-3" role="log" aria-live="polite" aria-atomic="false">
+        <!-- Logo -->
+        <span class="font-semibold text-gray-900 tracking-tight text-[15px]">PayTransparency</span>
 
-        <!-- Messaggio di benvenuto -->
-        <div class="flex justify-start">
-            <div class="max-w-[85%] md:max-w-md bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                <p class="text-sm whitespace-pre-wrap">Ciao! Sono il tuo assistente per la trasparenza retributiva. Puoi chiedermi informazioni sulla Direttiva EU 2023/970 o analizzare i tuoi dati retributivi. Prova a scrivere una domanda!</p>
-                <p class="text-xs text-gray-500 mt-1 text-right">ora</p>
+        <!-- Tab navigation pills -->
+        <nav class="flex items-center bg-gray-100 rounded-full p-1 gap-0.5" role="tablist" aria-label="Sezioni">
+            <button id="tab-assistente"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="panel-assistente"
+                    onclick="switchTab('assistente')"
+                    class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-150 bg-white shadow-sm text-gray-900">
+                <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Assistente
+            </button>
+            <button id="tab-analisi"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="panel-analisi"
+                    onclick="switchTab('analisi')"
+                    class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-150 text-gray-500 hover:text-gray-700">
+                <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                Analisi Dati
+            </button>
+        </nav>
+
+    </div>
+</header>
+
+<!-- ================================================================
+     PANELS CONTAINER — fills screen below fixed header
+     ================================================================ -->
+<div class="h-screen flex flex-col">
+    <div class="flex-1 relative overflow-hidden pt-14">
+
+        <!-- ============================================================
+             PANEL: ASSISTENTE
+             ============================================================ -->
+        <div id="panel-assistente"
+             role="tabpanel"
+             aria-labelledby="tab-assistente"
+             class="absolute inset-0 flex flex-col">
+
+            <!-- Messages area (scrollabile) -->
+            <main id="chat-messages"
+                  class="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-3xl mx-auto w-full space-y-4"
+                  role="log"
+                  aria-live="polite"
+                  aria-atomic="false">
+            </main>
+
+            <!-- Empty state — overlay, scompare quando arrivano messaggi -->
+            <div id="chat-empty-state"
+                 class="absolute inset-0 flex flex-col items-center justify-center pb-24 pointer-events-none"
+                 aria-hidden="true">
+
+                <h1 class="text-[1.75rem] font-semibold text-gray-900 mb-2 text-center px-4">
+                    Come posso aiutarti?
+                </h1>
+                <p class="text-gray-500 text-center text-sm px-4 mb-8">
+                    Chiedi informazioni su normative, gap retributivi e<br class="hidden sm:inline"> trasparenza salariale.
+                </p>
+
+                <!-- Suggestion chips -->
+                <div class="flex flex-wrap gap-2 justify-center max-w-lg px-4 pointer-events-auto">
+                    <button onclick="sendChip('Cosa dice la Direttiva EU 2023/970?')"
+                            class="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 transition-colors shadow-sm cursor-pointer">
+                        Cosa dice la Direttiva EU 2023/970?
+                    </button>
+                    <button onclick="sendChip('Cos\'è il gender pay gap?')"
+                            class="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 transition-colors shadow-sm cursor-pointer">
+                        Cos'è il gender pay gap?
+                    </button>
+                    <button onclick="sendChip('Quali sono gli obblighi di reporting per le aziende?')"
+                            class="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 transition-colors shadow-sm cursor-pointer">
+                        Obblighi di reporting
+                    </button>
+                    <button onclick="sendChip('Quali sanzioni prevede la Direttiva EU per le aziende non conformi?')"
+                            class="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 transition-colors shadow-sm cursor-pointer">
+                        Sanzioni previste
+                    </button>
+                </div>
+
+            </div><!-- /#chat-empty-state -->
+
+        </div><!-- /#panel-assistente -->
+
+        <!-- ============================================================
+             PANEL: ANALISI DATI
+             ============================================================ -->
+        <div id="panel-analisi"
+             role="tabpanel"
+             aria-labelledby="tab-analisi"
+             class="absolute inset-0 flex flex-col hidden">
+
+            <!-- Results area (scrollabile) -->
+            <main id="analysis-messages"
+                  class="flex-1 overflow-y-auto px-4 py-6 pb-28 max-w-3xl mx-auto w-full space-y-4"
+                  role="log"
+                  aria-live="polite"
+                  aria-atomic="false">
+            </main>
+
+            <!-- Empty state — grande drop zone, scompare dopo il primo upload -->
+            <div id="analysis-empty-state"
+                 class="absolute inset-0 flex flex-col items-center justify-center pb-16">
+
+                <div class="text-center mb-6">
+                    <div class="text-5xl mb-4">📊</div>
+                    <h2 class="text-[1.5rem] font-semibold text-gray-900 mb-1">
+                        Carica i tuoi dati retributivi
+                    </h2>
+                    <p class="text-gray-500 text-sm">
+                        Analisi gender pay gap conforme alla Direttiva EU 2023/970
+                    </p>
+                </div>
+
+                <form id="upload-form-empty"
+                      hx-post="/api/upload"
+                      hx-target="#analysis-messages"
+                      hx-swap="beforeend"
+                      hx-encoding="multipart/form-data"
+                      hx-indicator="#thinking"
+                      hx-request='{"timeout": 120000}'
+                      hx-on::after-request="onUploadAfterRequest(event)"
+                      class="w-full max-w-sm px-4">
+
+                    <label class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-gray-300 rounded-2xl bg-white hover:bg-gray-50 hover:border-gray-400 cursor-pointer transition-all group">
+                        <svg class="w-9 h-9 text-gray-400 group-hover:text-gray-500 mb-3 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span class="text-sm font-medium text-gray-700">Trascina il file o clicca per caricare</span>
+                        <span class="text-xs text-gray-400 mt-1.5">CSV, XLSX, XLS — max 10 MB</span>
+                        <input type="file"
+                               name="file"
+                               accept=".csv,.xlsx,.xls"
+                               aria-label="Carica file CSV o Excel"
+                               class="hidden"
+                               onchange="this.closest('form').requestSubmit();">
+                    </label>
+
+                </form>
+            </div><!-- /#analysis-empty-state -->
+
+        </div><!-- /#panel-analisi -->
+
+    </div><!-- /panels container -->
+
+    <!-- ================================================================
+         THINKING INDICATOR (shared, htmx-indicator)
+         ================================================================ -->
+    <div id="thinking"
+         class="htmx-indicator fixed bottom-[72px] left-0 right-0 z-40 pointer-events-none"
+         role="status"
+         aria-live="polite">
+        <div class="max-w-3xl mx-auto px-8">
+            <div class="flex items-center gap-1.5 py-1">
+                <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                <span class="text-xs text-gray-400 ml-1">Elaborazione in corso...</span>
             </div>
         </div>
-
-    </main>
-
-    <!-- Thinking indicator -->
-    <div id="thinking" class="htmx-indicator items-center justify-center gap-2 px-4 py-2 bg-gray-50 flex-shrink-0" role="status" aria-live="polite">
-        <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
-            <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
-            <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
-        </div>
-        <span class="text-sm text-gray-500 ml-2">Sto elaborando...</span>
     </div>
 
-    <!-- Input area (fixed bottom) -->
-    <footer class="bg-white border-t border-gray-200 px-3 py-3 flex-shrink-0">
-
-        <!-- Chat form -->
-        <form hx-post="/api/chat"
+    <!-- ================================================================
+         FOOTER: ASSISTENTE — pill chat input
+         ================================================================ -->
+    <div id="footer-assistente"
+         class="fixed bottom-0 left-0 right-0 z-40 pb-4 pt-2"
+         style="background: linear-gradient(to top, #F7F7F8 65%, transparent);">
+        <form id="chat-form"
+              hx-post="/api/chat"
               hx-target="#chat-messages"
               hx-swap="beforeend"
               hx-indicator="#thinking"
               hx-request='{"timeout": 120000}'
-              hx-on::after-request="if(event.detail.successful){this.reset();} document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
-              class="flex items-center gap-2">
+              hx-on::after-request="onChatAfterRequest(event)"
+              class="max-w-3xl mx-auto px-4">
 
-            <input type="text"
-                   name="text"
-                   placeholder="Scrivi un messaggio..."
-                   required
-                   autocomplete="off"
-                   aria-label="Scrivi un messaggio"
-                   class="flex-1 min-h-[44px] px-4 py-2 bg-gray-100 rounded-full border border-gray-200 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-sm text-gray-900 placeholder-gray-400">
+            <div class="flex items-center gap-2 bg-white rounded-full border border-gray-200 shadow-sm px-4 py-2.5">
+                <input type="text"
+                       id="chat-input"
+                       name="text"
+                       placeholder="Scrivi un messaggio..."
+                       required
+                       autocomplete="off"
+                       aria-label="Scrivi un messaggio"
+                       class="flex-1 min-h-[32px] bg-transparent focus:outline-none text-sm text-gray-900 placeholder-gray-400">
+                <button type="submit"
+                        aria-label="Invia messaggio"
+                        class="min-w-[34px] min-h-[34px] flex items-center justify-center bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-full transition-colors flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="19" x2="12" y2="5"></line>
+                        <polyline points="5 12 12 5 19 12"></polyline>
+                    </svg>
+                </button>
+            </div>
 
-            <!-- Send button -->
-            <button type="submit"
-                    aria-label="Invia messaggio"
-                    class="min-w-[44px] min-h-[44px] flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full transition-colors flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            </button>
         </form>
+    </div>
 
-        <!-- File upload form -->
-        <form hx-post="/api/upload"
-              hx-target="#chat-messages"
+    <!-- ================================================================
+         FOOTER: ANALISI DATI — compact upload button
+         ================================================================ -->
+    <div id="footer-analisi"
+         class="fixed bottom-0 left-0 right-0 z-40 pb-4 pt-2 hidden"
+         style="background: linear-gradient(to top, #F7F7F8 65%, transparent);">
+        <form id="upload-form-footer"
+              hx-post="/api/upload"
+              hx-target="#analysis-messages"
               hx-swap="beforeend"
               hx-encoding="multipart/form-data"
               hx-indicator="#thinking"
-              hx-on::after-request="if(event.detail.successful){this.reset();} document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
-              class="mt-2">
+              hx-request='{"timeout": 120000}'
+              hx-on::after-request="onUploadAfterRequest(event)"
+              class="max-w-3xl mx-auto px-4">
 
-            <label class="flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-blue-400">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <label class="flex items-center justify-center gap-2 min-h-[48px] px-4 py-2 bg-white rounded-full border border-gray-200 shadow-sm text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
-                <span>Carica file CSV/Excel</span>
+                <span>Carica un altro file CSV / Excel</span>
                 <input type="file"
                        name="file"
                        accept=".csv,.xlsx,.xls"
@@ -86,9 +247,96 @@
                        class="hidden"
                        onchange="this.closest('form').requestSubmit();">
             </label>
+
         </form>
+    </div>
 
-    </footer>
+</div><!-- /h-screen -->
 
-</div>
+<!-- ================================================================
+     JAVASCRIPT
+     ================================================================ -->
+<script>
+    // --- Tab switching ---
+    function switchTab(tab) {
+        var tabs = ['assistente', 'analisi'];
+        tabs.forEach(function(t) {
+            var panel  = document.getElementById('panel-' + t);
+            var btn    = document.getElementById('tab-' + t);
+            var footer = document.getElementById('footer-' + t);
+            var isActive = (t === tab);
+
+            if (panel)  panel.classList.toggle('hidden', !isActive);
+            if (footer) footer.classList.toggle('hidden', !isActive);
+            if (btn) {
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) {
+                    btn.classList.add('bg-white', 'shadow-sm', 'text-gray-900');
+                    btn.classList.remove('text-gray-500', 'hover:text-gray-700');
+                } else {
+                    btn.classList.remove('bg-white', 'shadow-sm', 'text-gray-900');
+                    btn.classList.add('text-gray-500', 'hover:text-gray-700');
+                }
+            }
+        });
+    }
+
+    // --- Chat empty state toggle ---
+    function updateChatEmptyState() {
+        var msgs  = document.getElementById('chat-messages');
+        var empty = document.getElementById('chat-empty-state');
+        if (!msgs || !empty) return;
+        var hasMessages = msgs.children.length > 0;
+        empty.style.display = hasMessages ? 'none' : '';
+        empty.setAttribute('aria-hidden', String(hasMessages));
+    }
+
+    // --- Analysis empty state toggle ---
+    function updateAnalysisEmptyState() {
+        var msgs  = document.getElementById('analysis-messages');
+        var empty = document.getElementById('analysis-empty-state');
+        if (!msgs || !empty) return;
+        var hasResults = msgs.children.length > 0;
+        empty.style.display = hasResults ? 'none' : '';
+    }
+
+    // --- Chip click → prefill + submit chat form ---
+    function sendChip(text) {
+        var input = document.getElementById('chat-input');
+        var form  = document.getElementById('chat-form');
+        if (!input || !form) return;
+        input.value = text;
+        htmx.trigger(form, 'submit');
+    }
+
+    // --- After chat request ---
+    function onChatAfterRequest(event) {
+        if (event.detail.successful) {
+            document.getElementById('chat-form').reset();
+        }
+        var msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        updateChatEmptyState();
+    }
+
+    // --- After upload request ---
+    function onUploadAfterRequest(event) {
+        if (event.detail.successful) {
+            var fe = document.getElementById('upload-form-empty');
+            var ff = document.getElementById('upload-form-footer');
+            if (fe) fe.reset();
+            if (ff) ff.reset();
+        }
+        var msgs = document.getElementById('analysis-messages');
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        updateAnalysisEmptyState();
+    }
+
+    // --- Init on load ---
+    document.addEventListener('DOMContentLoaded', function() {
+        updateChatEmptyState();
+        updateAnalysisEmptyState();
+    });
+</script>
+
 {% endblock %}
