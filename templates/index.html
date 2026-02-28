@@ -5,7 +5,7 @@
 <!-- ================================================================
      FIXED HEADER — logo + tab navigation
      ================================================================ -->
-<header class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
+<header class="fixed top-0 left-0 right-0 z-50 border-b border-gray-200/60" style="background: rgba(255,255,255,0.82); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
     <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
 
         <!-- Logo -->
@@ -185,7 +185,7 @@
          ================================================================ -->
     <div id="footer-assistente"
          class="fixed bottom-0 left-0 right-0 z-40 pb-4 pt-2"
-         style="background: linear-gradient(to top, #F7F7F8 65%, transparent);">
+         style="background: linear-gradient(to top, #F5F5F7 65%, transparent);">
         <form id="chat-form"
               hx-post="/api/chat"
               hx-target="#chat-messages"
@@ -222,7 +222,7 @@
          ================================================================ -->
     <div id="footer-analisi"
          class="fixed bottom-0 left-0 right-0 z-40 pb-4 pt-2 hidden"
-         style="background: linear-gradient(to top, #F7F7F8 65%, transparent);">
+         style="background: linear-gradient(to top, #F5F5F7 65%, transparent);">
         <form id="upload-form-footer"
               hx-post="/api/upload"
               hx-target="#analysis-messages"

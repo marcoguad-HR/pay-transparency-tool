@@ -107,6 +107,56 @@
         }
         .markdown-body pre code { background: none; padding: 0; }
 
+        /* ── Aurora orbs background ── */
+        body {
+            background-color: #F5F5F7;
+        }
+
+        .aurora-orb {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(90px);
+            will-change: transform;
+        }
+
+        .aurora-orb-1 {
+            width: 55vw;
+            height: 55vw;
+            top: -15%;
+            left: -10%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.28) 0%, transparent 70%);
+            animation: aurora-drift 14s ease-in-out infinite alternate;
+        }
+
+        .aurora-orb-2 {
+            width: 50vw;
+            height: 50vw;
+            bottom: -15%;
+            right: -10%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.22) 0%, transparent 70%);
+            animation: aurora-drift 18s ease-in-out infinite alternate-reverse;
+        }
+
+        .aurora-orb-3 {
+            width: 35vw;
+            height: 35vw;
+            top: 20%;
+            right: 5%;
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.16) 0%, transparent 70%);
+            animation: aurora-drift 22s ease-in-out infinite alternate;
+        }
+
+        @keyframes aurora-drift {
+            0%   { transform: scale(1)    translate(0, 0); }
+            50%  { transform: scale(1.08) translate(2%, 3%); }
+            100% { transform: scale(0.95) translate(-2%, -2%); }
+        }
+
+        /* Ensure page content sits above the orbs */
+        body > * { position: relative; z-index: 1; }
+
         /* Subtle scrollbar for messages areas */
         #chat-messages::-webkit-scrollbar,
         #analysis-messages::-webkit-scrollbar {
@@ -123,7 +173,12 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 h-screen">
+<body class="h-screen">
+    <!-- Aurora background orbs — decorative, pointer-events: none -->
+    <div class="aurora-orb aurora-orb-1" aria-hidden="true"></div>
+    <div class="aurora-orb aurora-orb-2" aria-hidden="true"></div>
+    <div class="aurora-orb aurora-orb-3" aria-hidden="true"></div>
+
     {% block content %}{% endblock %}
 </body>
 </html>
