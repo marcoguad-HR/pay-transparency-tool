@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#2563EB">
+    <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="mobile-web-app-capable" content="yes">
     <title>Pay Transparency Tool</title>
 
@@ -14,62 +14,116 @@
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- marked.js — markdown rendering for assistant responses -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script>
+        marked.setOptions({ breaks: true, gfm: true });
+    </script>
+
     <script>
         document.addEventListener('htmx:beforeSwap', function(evt) {
             // Allow HTMX to swap content for 4xx and 5xx responses
-            // (our error partials need to be displayed)
             if (evt.detail.xhr.status >= 400) {
                 evt.detail.shouldSwap = true;
                 evt.detail.isError = false;
             }
         });
 
-        // Handle timeout (status 0) and network errors — no server response to swap,
-        // so we inject an error bubble client-side
+        // Handle timeout (status 0) and network errors — inject error bubble client-side
         document.addEventListener('htmx:responseError', function(evt) {
-            var target = document.getElementById('chat-messages');
+            // Inject into whichever messages area is currently active
+            var chatPanel = document.getElementById('panel-assistente');
+            var isChat = chatPanel && !chatPanel.classList.contains('hidden');
+            var targetId = isChat ? 'chat-messages' : 'analysis-messages';
+            var target = document.getElementById(targetId);
             if (!target) return;
 
             var status = evt.detail.xhr ? evt.detail.xhr.status : -1;
             var msg = (status === 0)
-                ? 'La richiesta ha impiegato troppo tempo o si \u00e8 verificato un errore di rete. Riprova.'
+                ? 'La richiesta ha impiegato troppo tempo o si è verificato un errore di rete. Riprova.'
                 : 'Errore imprevisto (codice ' + status + '). Riprova tra qualche istante.';
 
             var errorHtml =
                 '<div class="flex justify-start">' +
-                '<div class="max-w-[85%] md:max-w-md bg-amber-50 text-amber-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-amber-200">' +
+                '<div class="max-w-[85%] md:max-w-2xl bg-amber-50 text-amber-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-amber-200">' +
                 '<div class="flex items-start gap-2">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                 '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>' +
                 '<line x1="12" y1="9" x2="12" y2="13"></line>' +
                 '<line x1="12" y1="17" x2="12.01" y2="17"></line>' +
                 '</svg>' +
-                '<div class="flex-1">' +
-                '<p class="text-sm whitespace-pre-wrap">' + msg + '</p>' +
-                '</div></div></div></div>';
+                '<div class="flex-1"><p class="text-sm">' + msg + '</p></div>' +
+                '</div></div></div>';
 
             target.insertAdjacentHTML('beforeend', errorHtml);
             target.scrollTop = target.scrollHeight;
+            if (isChat) { if (typeof updateChatEmptyState === 'function') updateChatEmptyState(); }
+            else { if (typeof updateAnalysisEmptyState === 'function') updateAnalysisEmptyState(); }
         });
     </script>
 
     <style>
-        /* Sistema font nativo — nessun font esterno da caricare */
+        /* Sistema font nativo */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                          "Helvetica Neue", Arial, sans-serif;
         }
+
         /* HTMX indicator: nascosto di default, visibile durante richieste */
-        .htmx-indicator {
-            display: none;
-        }
+        .htmx-indicator { display: none; }
         .htmx-request .htmx-indicator,
-        .htmx-request.htmx-indicator {
-            display: flex;
+        .htmx-request.htmx-indicator { display: flex; }
+
+        /* Markdown rendered content inside assistant bubbles */
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            font-weight: 600;
+            margin-top: 0.6rem;
+            margin-bottom: 0.2rem;
+        }
+        .markdown-body h3 { font-size: 0.875rem; }
+        .markdown-body ul, .markdown-body ol {
+            padding-left: 1.25rem;
+            margin-top: 0.2rem;
+            margin-bottom: 0.2rem;
+        }
+        .markdown-body li { margin-bottom: 0.1rem; }
+        .markdown-body p { margin-bottom: 0.25rem; }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body strong { font-weight: 600; }
+        .markdown-body code {
+            background: rgba(0,0,0,0.07);
+            padding: 0.1em 0.3em;
+            border-radius: 3px;
+            font-size: 0.82em;
+            font-family: "SF Mono", "Fira Code", monospace;
+        }
+        .markdown-body pre {
+            background: rgba(0,0,0,0.07);
+            padding: 0.75rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 0.4rem 0;
+        }
+        .markdown-body pre code { background: none; padding: 0; }
+
+        /* Subtle scrollbar for messages areas */
+        #chat-messages::-webkit-scrollbar,
+        #analysis-messages::-webkit-scrollbar {
+            width: 4px;
+        }
+        #chat-messages::-webkit-scrollbar-track,
+        #analysis-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-messages::-webkit-scrollbar-thumb,
+        #analysis-messages::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 2px;
         }
     </style>
 </head>
-<body class="bg-gray-50 h-screen overflow-hidden">
+<body class="bg-gray-50 h-screen">
     {% block content %}{% endblock %}
 </body>
 </html>
