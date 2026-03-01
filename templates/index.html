@@ -381,7 +381,20 @@
             document.getElementById('chat-form').reset();
         }
         var msgs = document.getElementById('chat-messages');
-        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        if (msgs) {
+            var children = msgs.children;
+            if (children.length >= 2) {
+                // Scroll so the user's message (second-to-last child) lands at
+                // the top of the visible area — keeps the question readable and
+                // shows the beginning of the assistant response below it.
+                var userMsg = children[children.length - 2];
+                var containerRect = msgs.getBoundingClientRect();
+                var targetRect = userMsg.getBoundingClientRect();
+                msgs.scrollTop += targetRect.top - containerRect.top;
+            } else {
+                msgs.scrollTop = msgs.scrollHeight;
+            }
+        }
         updateChatEmptyState();
     }
 

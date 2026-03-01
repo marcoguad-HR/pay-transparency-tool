@@ -32,3 +32,16 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Claude Code project settings and memory
+.claude/
+
+# Garbage files from mis-typed pip installs
+=*
+
+# Internal planning docs (not for public repo)
+tasks/
+PayTransparency_ChangePlan.docx
+
+# Real config (only config.yaml.example is safe to commit)
+config.yaml
