@@ -45,3 +45,12 @@ PayTransparency_ChangePlan.docx
 
 # Real config (only config.yaml.example is safe to commit)
 config.yaml
+
+# Analytics database (generato a runtime)
+data/analytics.db
+
+# Report generati
+data/report_*.txt
+
+# Lock file
+data/.lock
