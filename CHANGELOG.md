@@ -52,4 +52,4 @@ Prima release pubblica del Pay Transparency Tool.
 
 ---
 
-[1.0.0]: https://github.com/marcoguadagno/pay-transparency-tool/releases/tag/v1.0.0
+[1.0.0]: https://github.com/marcoguad-HR/pay-transparency-tool/releases/tag/v1.0.0

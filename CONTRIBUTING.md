@@ -8,7 +8,7 @@ Grazie per l'interesse nel contribuire al Pay Transparency Tool! Siamo felici di
 
 Se hai individuato un bug, segui questi passaggi:
 
-1. **Controlla che il bug non sia già segnalato** - Consulta la sezione [Issues](https://github.com/marcoguadagno/pay-transparency-tool/issues) per verificare che non ci sia già una segnalazione simile.
+1. **Controlla che il bug non sia già segnalato** - Consulta la sezione [Issues](https://github.com/marcoguad-HR/pay-transparency-tool/issues) per verificare che non ci sia già una segnalazione simile.
 
 2. **Apri una nuova Issue** con le seguenti informazioni:
    - **Descrizione chiara del problema** - Spiega cos'è andato male nel modo più dettagliato possibile
@@ -32,7 +32,7 @@ Se hai un'idea per una nuova funzionalità:
 ### Setup dell'ambiente di sviluppo
 
 ```bash
-git clone https://github.com/marcoguadagno/pay-transparency-tool.git
+git clone https://github.com/marcoguad-HR/pay-transparency-tool.git
 cd pay-transparency-tool
 bash setup.sh
 cp config.yaml.example config.yaml  # aggiungi la tua GROQ_API_KEY

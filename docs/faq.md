@@ -3,7 +3,7 @@
 Benvenuto nelle domande frequenti del **Pay Transparency Tool**. Questo documento è organizzato per tre diverse audience: professionisti HR, implementatori tecnici e utenti generali.
 
 **Strumento:** https://pay-transparency.marcog-ai4hr.cloud/
-**Repository:** https://github.com/marcoguadagno/pay-transparency-tool
+**Repository:** https://github.com/marcoguad-HR/pay-transparency-tool
 
 ---
 
@@ -186,7 +186,7 @@ Questo approccio garantisce che le risposte siano sempre supportate dai document
 Sì, assolutamente. Il progetto è completamente open source:
 
 **Passaggi:**
-1. Clone il repository: `git clone https://github.com/marcoguadagno/pay-transparency-tool.git`
+1. Clone il repository: `git clone https://github.com/marcoguad-HR/pay-transparency-tool.git`
 2. Configura la tua **Groq API key** (gratuita su https://console.groq.com)
 3. Installa le dipendenze: `pip install -r requirements.txt`
 4. Avvia l'applicazione secondo le istruzioni in `docs/guida-tecnica.md`
@@ -255,4 +255,4 @@ Questa flessibilità consente di adattare lo strumento alle tue preferenze e inf
 
 ---
 
-**Hai ancora domande?** Apri un issue su GitHub (https://github.com/marcoguadagno/pay-transparency-tool/issues) o contatta direttamente il maintainer.
+**Hai ancora domande?** Apri un issue su GitHub (https://github.com/marcoguad-HR/pay-transparency-tool/issues) o contatta direttamente il maintainer.

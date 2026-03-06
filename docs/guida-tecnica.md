@@ -521,7 +521,7 @@ black>=23.0.0            # Code formatting
 ### 1. Clona il Repository
 
 ```bash
-git clone https://github.com/marcoguadagno/pay-transparency-tool.git
+git clone https://github.com/marcoguad-HR/pay-transparency-tool.git
 cd pay-transparency-tool
 ```
 
@@ -990,7 +990,7 @@ Benvenuti i contributi! Ecco come partecipare:
 # Fork su GitHub, poi:
 git clone https://github.com/YOUR_USERNAME/pay-transparency-tool.git
 cd pay-transparency-tool
-git remote add upstream https://github.com/marcoguadagno/pay-transparency-tool.git
+git remote add upstream https://github.com/marcoguad-HR/pay-transparency-tool.git
 ```
 
 ### 2. Crea un Branch Feature
@@ -1265,4 +1265,4 @@ R: Sì, il VectorDB ha documenti in entrambe le lingue. Funziona automaticamente
 
 **Buona sviluppo! Grazie per il tuo contributo al Pay Transparency Tool.** 🚀
 
-*Per domande, apri un issue su GitHub: https://github.com/marcoguadagno/pay-transparency-tool/issues*
+*Per domande, apri un issue su GitHub: https://github.com/marcoguad-HR/pay-transparency-tool/issues*

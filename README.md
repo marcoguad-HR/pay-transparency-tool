@@ -50,7 +50,7 @@ Vai su **[pay-transparency.marcog-ai4hr.cloud](https://pay-transparency.marcog-a
 ### Quick Start
 
 ```bash
-git clone https://github.com/marcoguadagno/pay-transparency-tool.git
+git clone https://github.com/marcoguad-HR/pay-transparency-tool.git
 cd pay-transparency-tool
 
 cp config.yaml.example config.yaml   # aggiungi la tua GROQ_API_KEY
