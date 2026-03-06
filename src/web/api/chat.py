@@ -123,12 +123,25 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
 
     except Exception as e:
-        logger.error(f"Errore durante chat: {e}", exc_info=True)
+        logger.error(f"Errore durante chat: {type(e).__name__}: {e}", exc_info=True)
+
+        error_str = str(e).lower()
+        error_type = type(e).__name__.lower()
+
+        if "auth" in error_type or "auth" in error_str or "api key" in error_str or "invalid_api_key" in error_str:
+            user_msg = "Il servizio AI non è configurato correttamente (chiave API mancante o non valida). Contatta l'amministratore del sistema."
+        elif "connection" in error_type or "connect" in error_str or "network" in error_str or "unreachable" in error_str:
+            user_msg = "Impossibile raggiungere il servizio AI. Verifica la connessione di rete e riprova."
+        elif "quota" in error_str or "rate" in error_str or "limit" in error_str:
+            user_msg = "Limite di richieste raggiunto. Attendi qualche minuto e riprova."
+        else:
+            user_msg = "Si è verificato un errore interno. Riprova tra qualche istante."
+
         error_html = templates.TemplateResponse(
             "partials/chat_error.html",
             {
                 "request": request,
-                "error": "Si e' verificato un errore interno. Riprova tra qualche istante.",
+                "error": user_msg,
                 "timestamp": timestamp,
             },
         ).body.decode()

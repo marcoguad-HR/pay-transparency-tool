@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>Tool Locale — Analisi Gender Pay Gap | PayTransparency</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PapaParse — browser CSV parser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", Arial, sans-serif;
+            background-color: #F5F5F7;
+        }
+
+        /* ── Aurora orbs background ── */
+        .aurora-orb {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(90px);
+            will-change: transform;
+        }
+        .aurora-orb-1 {
+            width: 55vw; height: 55vw;
+            top: -15%; left: -10%;
+            background: radial-gradient(circle, rgba(139,92,246,0.28) 0%, transparent 70%);
+            animation: aurora-drift 14s ease-in-out infinite alternate;
+        }
+        .aurora-orb-2 {
+            width: 50vw; height: 50vw;
+            bottom: -15%; right: -10%;
+            background: radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%);
+            animation: aurora-drift 18s ease-in-out infinite alternate-reverse;
+        }
+        .aurora-orb-3 {
+            width: 35vw; height: 35vw;
+            top: 20%; right: 5%;
+            background: radial-gradient(circle, rgba(244,114,182,0.16) 0%, transparent 70%);
+            animation: aurora-drift 22s ease-in-out infinite alternate;
+        }
+        @keyframes aurora-drift {
+            0%   { transform: scale(1)    translate(0, 0); }
+            50%  { transform: scale(1.08) translate(2%, 3%); }
+            100% { transform: scale(0.95) translate(-2%, -2%); }
+        }
+        body > * { position: relative; z-index: 1; }
+
+        /* Drop zone active state */
+        .drop-active {
+            border-color: #6366f1 !important;
+            background-color: rgba(238,242,255,0.7) !important;
+        }
+
+        /* Print styles (LOC-09) */
+        @media print {
+            .no-print { display: none !important; }
+            .aurora-orb { display: none !important; }
+            header {
+                position: static !important;
+                box-shadow: none !important;
+                background: white !important;
+                border-bottom: 1px solid #e5e7eb !important;
+            }
+            body { background: white !important; }
+            #print-header { display: block !important; }
+            #upload-section { display: none !important; }
+            #privacy-banner { display: none !important; }
+            #cta-portal { display: none !important; }
+            #loading { display: none !important; }
+            #results-section { display: block !important; }
+            .bg-white { background: white !important; }
+            @page { margin: 1.5cm; size: A4; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Aurora background orbs -->
+    <div class="aurora-orb aurora-orb-1" aria-hidden="true"></div>
+    <div class="aurora-orb aurora-orb-2" aria-hidden="true"></div>
+    <div class="aurora-orb aurora-orb-3" aria-hidden="true"></div>
+
+    <!-- ================================================================
+         FIXED HEADER — frosted glass, same style as portal
+         ================================================================ -->
+    <header class="fixed top-0 left-0 right-0 z-50 no-print"
+            style="background: rgba(255,255,255,0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(0,0,0,0.08);">
+        <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+
+            <!-- Logo -->
+            <div class="flex flex-col flex-shrink-0">
+                <span class="font-semibold text-gray-900 tracking-tight text-[15px] leading-tight">PayTransparency</span>
+                <span class="text-[10px] text-gray-400 font-normal leading-tight">powered by Marco Guadagno</span>
+            </div>
+
+            <!-- Center badge -->
+            <span class="hidden sm:inline-flex items-center gap-1.5 bg-gray-100 text-gray-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
+                <svg class="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Tool Locale — Zero Upload
+            </span>
+
+            <!-- Header actions (shown after results) -->
+            <div class="flex items-center gap-2">
+                <button id="btn-print" onclick="window.print()"
+                        style="display:none"
+                        class="no-print items-center gap-1.5 text-[12px] text-gray-500 hover:text-gray-800 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-gray-100 border border-gray-200">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9"/>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                        <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                    Salva PDF
+                </button>
+                <button id="btn-new" onclick="resetTool()"
+                        style="display:none"
+                        class="no-print items-center gap-1.5 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 border border-indigo-100">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                    </svg>
+                    Nuova analisi
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Print-only header (hidden on screen) -->
+    <div id="print-header" style="display:none" class="px-6 py-4 border-b border-gray-200">
+        <p class="text-base font-semibold text-gray-900">Analisi Gender Pay Gap — PayTransparency</p>
+        <p class="text-xs text-gray-500 mt-0.5">Tool Locale · Dati elaborati interamente nel browser · <span id="print-date"></span></p>
+    </div>
+
+    <!-- ================================================================
+         MAIN CONTENT
+         ================================================================ -->
+    <main class="max-w-3xl mx-auto px-4 pt-20 pb-16">
+
+        <!-- LOC-05: Privacy Banner -->
+        <div id="privacy-banner" class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-3 no-print">
+            <svg class="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <p class="text-[12px] text-emerald-800 leading-relaxed">
+                <strong class="font-semibold">I tuoi dati non lasciano mai questo computer.</strong>
+                L'analisi avviene interamente nel tuo browser — nessun file viene inviato a server esterni.
+            </p>
+        </div>
+
+        <!-- ================================================================
+             UPLOAD SECTION (shown initially)
+             ================================================================ -->
+        <section id="upload-section">
+            <div class="text-center mb-6">
+                <h1 class="text-xl font-bold text-gray-900 mb-1">Analisi Gender Pay Gap</h1>
+                <p class="text-sm text-gray-500">Carica il tuo CSV per ottenere la verifica di compliance alla Direttiva EU 2023/970</p>
+            </div>
+
+            <!-- Drag-and-drop zone -->
+            <div id="drop-zone"
+                 class="border-2 border-dashed border-gray-300 rounded-2xl bg-white/60 p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/20 transition-all mb-4"
+                 onclick="document.getElementById('file-input').click()"
+                 role="button" tabindex="0"
+                 onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('file-input').click()">
+                <div class="flex flex-col items-center gap-3 pointer-events-none">
+                    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+                        <svg class="w-7 h-7 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="12" y1="18" x2="12" y2="12"/>
+                            <line x1="9" y1="15" x2="12" y2="12"/>
+                            <line x1="15" y1="15" x2="12" y2="12"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-gray-700">Trascina il tuo CSV qui</p>
+                        <p class="text-xs text-gray-400 mt-0.5">oppure clicca per selezionare il file</p>
+                    </div>
+                    <span class="text-[11px] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Solo file .csv · Max 10 MB</span>
+                </div>
+                <input type="file" id="file-input" accept=".csv" class="hidden" style="display:none">
+            </div>
+
+            <!-- LOC-06: Error box (hidden by default) -->
+            <div id="error-box" style="display:none"
+                 class="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
+                <svg class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p id="error-msg" class="text-[12px] text-red-800 leading-relaxed"></p>
+            </div>
+
+            <!-- Action row -->
+            <div class="flex items-center justify-between gap-3 mt-2">
+                <!-- LOC-07: CSV template download -->
+                <button onclick="downloadTemplate()"
+                        class="flex items-center gap-1.5 text-[12px] text-indigo-600 hover:text-indigo-800 transition-colors px-3 py-2 rounded-lg border border-indigo-100 hover:bg-indigo-50">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Scarica CSV di esempio
+                </button>
+
+                <!-- Column reference toggle -->
+                <button onclick="toggleColRef()"
+                        class="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg id="col-ref-chevron" class="w-3 h-3 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                    Formato colonne richiesto
+                </button>
+            </div>
+
+            <!-- Column reference table (collapsible) -->
+            <div id="col-ref" style="display:none" class="mt-3 rounded-xl border border-gray-200 bg-white overflow-hidden">
+                <table class="w-full text-[11px]">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600">Colonna</th>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600">Tipo</th>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600">Obbl.</th>
+                            <th class="px-3 py-2 text-left font-semibold text-gray-600">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-gray-800">gender</td>
+                            <td class="px-3 py-2 text-gray-500">M / F</td>
+                            <td class="px-3 py-2 text-emerald-600 font-medium">✅ Sì</td>
+                            <td class="px-3 py-2 text-gray-400">Case-insensitive</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-gray-800">base_salary</td>
+                            <td class="px-3 py-2 text-gray-500">numero</td>
+                            <td class="px-3 py-2 text-emerald-600 font-medium">✅ Sì</td>
+                            <td class="px-3 py-2 text-gray-400">Lordo annuo in €, senza separatori</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-gray-800">department</td>
+                            <td class="px-3 py-2 text-gray-500">testo</td>
+                            <td class="px-3 py-2 text-amber-600 font-medium">⚠ Cons.</td>
+                            <td class="px-3 py-2 text-gray-400">Per analisi per categoria</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-gray-800">level</td>
+                            <td class="px-3 py-2 text-gray-500">testo</td>
+                            <td class="px-3 py-2 text-amber-600 font-medium">⚠ Cons.</td>
+                            <td class="px-3 py-2 text-gray-400">Per analisi per categoria</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-gray-800">bonus</td>
+                            <td class="px-3 py-2 text-gray-500">numero</td>
+                            <td class="px-3 py-2 text-gray-400">❌ Opz.</td>
+                            <td class="px-3 py-2 text-gray-400">Se assente, mostra composizione</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="px-3 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+                    Separatori <code class="bg-gray-100 px-1 rounded">,</code> e <code class="bg-gray-100 px-1 rounded">;</code> (Excel italiano) supportati. Encoding UTF-8 e UTF-8 BOM supportati.
+                </p>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             LOADING STATE (hidden)
+             ================================================================ -->
+        <div id="loading" style="display:none" class="text-center py-16">
+            <div class="inline-flex flex-col items-center gap-3">
+                <div class="w-10 h-10 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin"></div>
+                <p class="text-sm text-gray-500">Analisi in corso...</p>
+                <p class="text-[11px] text-gray-400">I dati restano nel tuo browser</p>
+            </div>
+        </div>
+
+        <!-- ================================================================
+             RESULTS SECTION (hidden initially)
+             ================================================================ -->
+        <section id="results-section" style="display:none">
+            <!-- LOC-10: Parse stats indicator -->
+            <div id="parse-stats" class="mb-3 flex items-center gap-2 flex-wrap no-print"></div>
+            <!-- Dashboard HTML inserted here by renderDashboard() -->
+            <div id="dashboard"></div>
+        </section>
+
+        <!-- ================================================================
+             LOC-08: CTA to portal (hidden until results)
+             ================================================================ -->
+        <div id="cta-portal" style="display:none" class="mt-4 rounded-xl bg-white border border-gray-200 px-5 py-4 no-print">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800 mb-1">Hai domande sulla Direttiva EU?</p>
+                    <p class="text-[12px] text-gray-500">Il nostro chatbot risponde gratuitamente su obblighi, scadenze e azioni correttive.</p>
+                </div>
+                <a href="/" target="_blank"
+                   class="flex-shrink-0 inline-flex items-center gap-1.5 bg-gray-900 text-white text-[12px] font-medium px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors whitespace-nowrap">
+                    Vai al portale
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+    // =========================================================================
+    // ANALYSIS ENGINE — JS reimplementation of gap_calculator.py
+    // Formula: GPG = (media_M - media_F) / media_M × 100
+    // Soglia EU: 5.0%
+    // =========================================================================
+
+    const EU_THRESHOLD = 5.0;
+
+    function round2(n) { return Math.round(n * 100) / 100; }
+    function round1(n) { return Math.round(n * 10) / 10; }
+
+    function fmtEur(n) {
+        return '\u20ac' + Math.round(n).toLocaleString('en-US');
+    }
+    function fmtPct(n) {
+        return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+    }
+
+    function mean(arr) {
+        if (!arr.length) return 0;
+        return arr.reduce(function(a, b) { return a + b; }, 0) / arr.length;
+    }
+
+    function median(arr) {
+        if (!arr.length) return 0;
+        var sorted = arr.slice().sort(function(a, b) { return a - b; });
+        var mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2
+            : sorted[mid];
+    }
+
+    function calcGap(rows, useMedian) {
+        var maleSal = rows.filter(function(r) { return r.gender === 'M'; }).map(function(r) { return r.base_salary; });
+        var femSal  = rows.filter(function(r) { return r.gender === 'F'; }).map(function(r) { return r.base_salary; });
+        if (!maleSal.length || !femSal.length) {
+            return { gap_pct: 0, male_avg: 0, female_avg: 0,
+                     male_count: maleSal.length, female_count: femSal.length,
+                     is_significant: false };
+        }
+        var maleVal = useMedian ? median(maleSal) : mean(maleSal);
+        var femVal  = useMedian ? median(femSal)  : mean(femSal);
+        var gapPct  = maleVal > 0 ? (maleVal - femVal) / maleVal * 100 : 0;
+        return {
+            gap_pct:       round2(gapPct),
+            male_avg:      round2(maleVal),
+            female_avg:    round2(femVal),
+            male_count:    maleSal.length,
+            female_count:  femSal.length,
+            is_significant: Math.abs(gapPct) > EU_THRESHOLD
+        };
+    }
+
+    function gapByCategory(rows) {
+        var hasDept  = rows.some(function(r) { return r.department && String(r.department).trim() !== ''; });
+        var hasLevel = rows.some(function(r) { return r.level      && String(r.level).trim()      !== ''; });
+        if (!hasDept || !hasLevel) return [];
+
+        var groups = {};
+        rows.forEach(function(r) {
+            var d = r.department ? String(r.department).trim() : '';
+            var l = r.level      ? String(r.level).trim()      : '';
+            if (!d || !l) return;
+            var key = d + '|||' + l;
+            if (!groups[key]) groups[key] = { dept: d, level: l, rows: [] };
+            groups[key].rows.push(r);
+        });
+
+        var results = [];
+        Object.values(groups).forEach(function(g) {
+            var males   = g.rows.filter(function(r) { return r.gender === 'M'; });
+            var females = g.rows.filter(function(r) { return r.gender === 'F'; });
+            if (males.length < 2 || females.length < 2) return;
+            var gap = calcGap(g.rows, false);
+            results.push({
+                department:    g.dept,
+                level:         g.level,
+                gap_pct:       gap.gap_pct,
+                male_avg:      gap.male_avg,
+                female_avg:    gap.female_avg,
+                male_count:    gap.male_count,
+                female_count:  gap.female_count,
+                is_significant: gap.is_significant
+            });
+        });
+
+        results.sort(function(a, b) { return b.gap_pct - a.gap_pct; });
+        return results;
+    }
+
+    function payQuartiles(rows) {
+        var sorted = rows.slice().sort(function(a, b) { return a.base_salary - b.base_salary; });
+        var n = sorted.length;
+        var results = [];
+        for (var q = 1; q <= 4; q++) {
+            var start = Math.floor((q - 1) * n / 4);
+            var end   = Math.floor(q * n / 4);
+            var group = sorted.slice(start, end);
+            if (!group.length) continue;
+            var males   = group.filter(function(r) { return r.gender === 'M'; });
+            var females = group.filter(function(r) { return r.gender === 'F'; });
+            var total   = group.length;
+            results.push({
+                quartile:     q,
+                min_salary:   group[0].base_salary,
+                max_salary:   group[group.length - 1].base_salary,
+                total:        total,
+                male_count:   males.length,
+                female_count: females.length,
+                male_pct:     round1(males.length   / total * 100),
+                female_pct:   round1(females.length / total * 100)
+            });
+        }
+        return results;
+    }
+
+    function bonusGap(rows) {
+        if (!rows.some(function(r) { return r.bonus !== undefined; })) return null;
+        var withBonus = rows.filter(function(r) { return r.bonus > 0; });
+        if (!withBonus.length) return null;
+        var males   = withBonus.filter(function(r) { return r.gender === 'M'; }).map(function(r) { return r.bonus; });
+        var females = withBonus.filter(function(r) { return r.gender === 'F'; }).map(function(r) { return r.bonus; });
+        if (!males.length || !females.length) return null;
+        var maleAvg = mean(males);
+        var femAvg  = mean(females);
+        var gapPct  = maleAvg > 0 ? (maleAvg - femAvg) / maleAvg * 100 : 0;
+        return {
+            gap_pct:       round2(gapPct),
+            male_avg:      round2(maleAvg),
+            female_avg:    round2(femAvg),
+            male_count:    males.length,
+            female_count:  females.length,
+            is_significant: Math.abs(gapPct) > EU_THRESHOLD
+        };
+    }
+
+    function fullAnalysis(rows) {
+        var meanGap    = calcGap(rows, false);
+        var medianGap  = calcGap(rows, true);
+        var catGaps    = gapByCategory(rows);
+        var quartiles  = payQuartiles(rows);
+        var bGap       = bonusGap(rows);
+        var nonCompliant = catGaps.filter(function(c) { return c.is_significant; });
+        return {
+            is_compliant:            nonCompliant.length === 0,
+            overall_mean_gap:        meanGap,
+            overall_median_gap:      medianGap,
+            category_gaps:           catGaps,
+            non_compliant_categories: nonCompliant,
+            quartiles:               quartiles,
+            bonus_gap:               bGap
+        };
+    }
+
+    // =========================================================================
+    // CSV PARSER + VALIDATOR (LOC-02, LOC-06)
+    // =========================================================================
+
+    var CSV_ERRORS = {
+        notCsv:       "Questo file non sembra un CSV. Prova a esportare da Excel come \u2018CSV UTF-8\u2019.",
+        noGender:     "La colonna \u2018gender\u2019 \u00e8 obbligatoria. Assicurati che il tuo file abbia una colonna con i valori M/F.",
+        noSalary:     "La colonna \u2018base_salary\u2019 \u00e8 obbligatoria. Deve contenere lo stipendio lordo annuo in euro.",
+        empty:        "Il file sembra vuoto o non contiene dati validi.",
+        singleGender: "Il file non contiene dipendenti di entrambi i generi. L\u2019analisi del gap richiede dati di uomini e donne."
+    };
+
+    function validateAndParse(csvText) {
+        // Remove UTF-8 BOM if present (Excel italiano)
+        if (csvText.charCodeAt(0) === 0xFEFF) {
+            csvText = csvText.slice(1);
+        }
+
+        var result = Papa.parse(csvText, {
+            header:           true,
+            dynamicTyping:    true,
+            skipEmptyLines:   true,
+            delimitersToGuess: [',', ';', '\t']
+        });
+
+        if ((!result.data || result.data.length === 0) && result.errors.length > 0) {
+            throw new Error(CSV_ERRORS.notCsv);
+        }
+        if (!result.data || result.data.length === 0) {
+            throw new Error(CSV_ERRORS.empty);
+        }
+
+        // Detect required columns (case-insensitive)
+        var rawHeaders = Object.keys(result.data[0]);
+        var headersLow = rawHeaders.map(function(h) { return h.trim().toLowerCase(); });
+
+        var genderIdx  = headersLow.indexOf('gender');
+        var salaryIdx  = headersLow.indexOf('base_salary');
+        var deptIdx    = headersLow.indexOf('department');
+        var levelIdx   = headersLow.indexOf('level');
+        var bonusIdx   = headersLow.indexOf('bonus');
+
+        if (genderIdx  < 0) throw new Error(CSV_ERRORS.noGender);
+        if (salaryIdx  < 0) throw new Error(CSV_ERRORS.noSalary);
+
+        var genderCol = rawHeaders[genderIdx];
+        var salaryCol = rawHeaders[salaryIdx];
+        var deptCol   = deptIdx  >= 0 ? rawHeaders[deptIdx]  : null;
+        var levelCol  = levelIdx >= 0 ? rawHeaders[levelIdx] : null;
+        var bonusCol  = bonusIdx >= 0 ? rawHeaders[bonusIdx] : null;
+
+        // Normalize rows
+        var skipped = 0;
+        var rows = [];
+        result.data.forEach(function(raw) {
+            var g = raw[genderCol];
+            var s = raw[salaryCol];
+            if (!g || s == null || isNaN(Number(s)) || Number(s) <= 0) {
+                skipped++;
+                return;
+            }
+            var gNorm = String(g).trim().toUpperCase();
+            if (gNorm !== 'M' && gNorm !== 'F') { skipped++; return; }
+
+            var row = { gender: gNorm, base_salary: Number(s) };
+
+            if (deptCol  && raw[deptCol]  != null) row.department = String(raw[deptCol]).trim();
+            if (levelCol && raw[levelCol] != null) row.level      = String(raw[levelCol]).trim();
+            if (bonusCol && raw[bonusCol] != null && !isNaN(Number(raw[bonusCol]))) {
+                row.bonus = Number(raw[bonusCol]);
+            }
+
+            rows.push(row);
+        });
+
+        if (rows.length === 0) throw new Error(CSV_ERRORS.empty);
+
+        var hasMale   = rows.some(function(r) { return r.gender === 'M'; });
+        var hasFemale = rows.some(function(r) { return r.gender === 'F'; });
+        if (!hasMale || !hasFemale) throw new Error(CSV_ERRORS.singleGender);
+
+        return { rows: rows, skipped: skipped, total: result.data.length };
+    }
+
+    // =========================================================================
+    // RENDER DASHBOARD — JS port of upload_result.html (all 6 MUSTs)
+    // =========================================================================
+
+    function gapBadge(gapPct) {
+        var ga = Math.abs(gapPct);
+        if (gapPct < 0)  return '<span class="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full whitespace-nowrap">Invertito</span>';
+        if (ga <= 5)     return '<span class="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">Nella soglia EU</span>';
+        if (ga <= 10)    return '<span class="text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">\u26a0 Supera il 5%</span>';
+        return '<span class="text-[10px] font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">\u26a0 Gap significativo</span>';
+    }
+
+    function gapColorClass(gapAbs) {
+        if (gapAbs <= 5)  return 'text-emerald-600';
+        if (gapAbs <= 10) return 'text-amber-500';
+        return 'text-red-500';
+    }
+
+    function renderDashboard(result, filename, nMale, nFemale, nTotal) {
+        var r   = result;
+        var gm  = r.overall_mean_gap;
+        var gme = r.overall_median_gap;
+
+        // ── MUST-02: Status Banner ──────────────────────────────────────────
+        var banner = '';
+        if (r.is_compliant) {
+            banner = [
+                '<div class="rounded-2xl bg-emerald-50 border border-emerald-200 px-5 py-4 mb-4">',
+                  '<div class="flex items-start justify-between gap-4">',
+                    '<div class="min-w-0">',
+                      '<div class="flex items-center gap-2 mb-2">',
+                        '<span class="inline-flex items-center gap-1.5 bg-emerald-500 text-white text-[11px] font-bold tracking-widest uppercase px-3 py-1 rounded-full">',
+                          '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+                          'Conforme',
+                        '</span>',
+                        '<span class="text-xs text-gray-500 font-medium">Direttiva EU 2023/970</span>',
+                      '</div>',
+                      '<p class="text-sm text-gray-700 leading-relaxed mb-1">',
+                        'Nessun gap retributivo supera la <strong class="font-semibold">soglia del 5%</strong> richiesta dalla Direttiva.<br>',
+                        'Puoi procedere con la pubblicazione del report annuale.',
+                      '</p>',
+                      '<p class="text-xs text-gray-400 mt-2">',
+                        '<span class="font-medium text-gray-500">' + filename + '</span>',
+                        ' &nbsp;\u00b7&nbsp; ' + nTotal + ' dipendenti',
+                        ' &nbsp;\u00b7&nbsp; ' + nMale + '\u2642 uomini \u00b7 ' + nFemale + '\u2640 donne',
+                      '</p>',
+                    '</div>',
+                    '<div class="flex-shrink-0 text-3xl font-black text-emerald-500 leading-none mt-0.5">\u2713</div>',
+                  '</div>',
+                '</div>'
+            ].join('');
+        } else {
+            var nc = r.non_compliant_categories.length;
+            banner = [
+                '<div class="rounded-2xl bg-red-50 border border-red-200 px-5 py-4 mb-4">',
+                  '<div class="flex items-start justify-between gap-4">',
+                    '<div class="min-w-0">',
+                      '<div class="flex items-center gap-2 mb-2">',
+                        '<span class="inline-flex items-center gap-1.5 bg-red-500 text-white text-[11px] font-bold tracking-widest uppercase px-3 py-1 rounded-full">',
+                          '<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+                          'Non Conforme',
+                        '</span>',
+                        '<span class="text-xs text-gray-500 font-medium">Direttiva EU 2023/970</span>',
+                      '</div>',
+                      '<p class="text-sm text-gray-700 leading-relaxed mb-1">',
+                        '<strong class="font-semibold">' + nc + ' ' + (nc === 1 ? 'categoria presenta' : 'categorie presentano') + ' un gap retributivo superiore al 5%.</strong><br>',
+                        'Art. 9 Direttiva EU: \u00e8 richiesta una valutazione retributiva congiunta entro <strong class="font-semibold">6 mesi</strong> dalla rilevazione.',
+                      '</p>',
+                      '<p class="text-xs text-gray-400 mt-2">',
+                        '<span class="font-medium text-gray-500">' + filename + '</span>',
+                        ' &nbsp;\u00b7&nbsp; ' + nTotal + ' dipendenti',
+                        ' &nbsp;\u00b7&nbsp; ' + nMale + '\u2642 uomini \u00b7 ' + nFemale + '\u2640 donne',
+                      '</p>',
+                    '</div>',
+                    '<div class="flex-shrink-0 text-right mt-0.5">',
+                      '<p class="text-3xl font-black text-red-500 leading-none">' + nc + '</p>',
+                      '<p class="text-[10px] text-red-400 font-medium uppercase tracking-wide mt-0.5">' + (nc === 1 ? 'categoria critica' : 'categorie critiche') + '</p>',
+                    '</div>',
+                  '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        // ── MUST-03: KPI Cards ──────────────────────────────────────────────
+        var gmAbs  = Math.abs(gm.gap_pct);
+        var gmeAbs = Math.abs(gme.gap_pct);
+
+        var card3 = '';
+        if (r.bonus_gap) {
+            var gb    = r.bonus_gap;
+            var gbAbs = Math.abs(gb.gap_pct);
+            card3 = [
+                '<div class="bg-white rounded-xl border border-gray-200 px-4 py-3">',
+                  '<div class="flex items-start justify-between gap-1 mb-2">',
+                    '<p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider leading-tight">Gap Retrib. Variabile</p>',
+                    gapBadge(gb.gap_pct),
+                  '</div>',
+                  '<p class="text-2xl font-black leading-none mb-2 ' + gapColorClass(gbAbs) + '">' + fmtPct(gb.gap_pct) + '</p>',
+                  '<p class="text-[11px] text-gray-400 leading-snug mb-2.5">',
+                    'Bonus e premi sono mediamente ' + (gb.gap_pct >= 0 ? 'pi\u00f9 alti per gli uomini' : 'pi\u00f9 alti per le donne') + '. Include tutti i compensi non fissi.',
+                  '</p>',
+                  '<div class="pt-2 border-t border-gray-100">',
+                    '<p class="text-[11px] text-gray-400">Differenza retribuzione variabile M/F</p>',
+                  '</div>',
+                '</div>'
+            ].join('');
+        } else {
+            var malePct   = Math.round(nMale   / nTotal * 100);
+            var femalePct = 100 - malePct;
+            card3 = [
+                '<div class="bg-white rounded-xl border border-gray-200 px-4 py-3">',
+                  '<div class="flex items-start justify-between gap-1 mb-2">',
+                    '<p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider leading-tight">Composizione Personale</p>',
+                  '</div>',
+                  '<p class="text-2xl font-black leading-none text-gray-700 mb-2">' + malePct + '/' + femalePct + '</p>',
+                  '<p class="text-[11px] text-gray-400 leading-snug mb-2.5">',
+                    'L\u2019organizzazione \u00e8 composta da ' + nMale + ' uomini e ' + nFemale + ' donne.',
+                  '</p>',
+                  '<div class="pt-2 border-t border-gray-100 space-y-0.5">',
+                    '<p class="text-[11px] text-gray-600"><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mr-1 mb-[1px]"></span>' + nMale + ' uomini (' + malePct + '%)</p>',
+                    '<p class="text-[11px] text-gray-400"><span class="inline-block w-2 h-2 rounded-sm bg-gray-400 mr-1 mb-[1px]"></span>' + nFemale + ' donne (' + femalePct + '%)</p>',
+                  '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        var kpiCards = [
+            '<div class="grid grid-cols-3 gap-3 mb-4">',
+              // Card 1: Mean gap
+              '<div class="bg-white rounded-xl border border-gray-200 px-4 py-3">',
+                '<div class="flex items-start justify-between gap-1 mb-2">',
+                  '<p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider leading-tight">Gap Retributivo Medio</p>',
+                  gapBadge(gm.gap_pct),
+                '</div>',
+                '<p class="text-2xl font-black leading-none mb-2 ' + gapColorClass(gmAbs) + '">' + fmtPct(gm.gap_pct) + '</p>',
+                '<p class="text-[11px] text-gray-400 leading-snug mb-2.5">',
+                  'Lo stipendio medio degli uomini \u00e8 il ' + gmAbs.toFixed(1) + '% ' + (gm.gap_pct >= 0 ? 'pi\u00f9 alto' : 'pi\u00f9 basso') + ' di quello delle donne.',
+                '</p>',
+                '<div class="pt-2 border-t border-gray-100 space-y-0.5">',
+                  '<p class="text-[11px] text-gray-600"><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mr-1 mb-[1px]"></span>Uomini &nbsp;' + fmtEur(gm.male_avg) + '</p>',
+                  '<p class="text-[11px] text-gray-400"><span class="inline-block w-2 h-2 rounded-sm bg-gray-400 mr-1 mb-[1px]"></span>Donne &nbsp;&nbsp;' + fmtEur(gm.female_avg) + '</p>',
+                '</div>',
+              '</div>',
+              // Card 2: Median gap
+              '<div class="bg-white rounded-xl border border-gray-200 px-4 py-3">',
+                '<div class="flex items-start justify-between gap-1 mb-2">',
+                  '<p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider leading-tight">Gap Retributivo Mediano</p>',
+                  gapBadge(gme.gap_pct),
+                '</div>',
+                '<p class="text-2xl font-black leading-none mb-2 ' + gapColorClass(gmeAbs) + '">' + fmtPct(gme.gap_pct) + '</p>',
+                '<p class="text-[11px] text-gray-400 leading-snug mb-2.5">',
+                  'Il dipendente \u201ctipico\u201d guadagna ' + (gme.gap_pct >= 0 ? 'di pi\u00f9' : 'di meno') + ' se uomo. La mediana esclude i valori estremi.',
+                '</p>',
+                '<div class="pt-2 border-t border-gray-100 space-y-0.5">',
+                  '<p class="text-[11px] text-gray-600"><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mr-1 mb-[1px]"></span>Uomini &nbsp;' + fmtEur(gme.male_avg) + '</p>',
+                  '<p class="text-[11px] text-gray-400"><span class="inline-block w-2 h-2 rounded-sm bg-gray-400 mr-1 mb-[1px]"></span>Donne &nbsp;&nbsp;' + fmtEur(gme.female_avg) + '</p>',
+                '</div>',
+              '</div>',
+              // Card 3: Bonus or composition
+              card3,
+            '</div>'
+        ].join('');
+
+        // ── MUST-04: Category Breakdown ─────────────────────────────────────
+        var catBreakdown = '';
+        if (r.category_gaps.length > 0) {
+            var ncCount = r.non_compliant_categories.length;
+            var catRows = r.category_gaps.map(function(cat) {
+                var localMax = Math.max(cat.male_avg, cat.female_avg);
+                var maleW    = Math.round(cat.male_avg   / localMax * 100);
+                var femW     = Math.round(cat.female_avg / localMax * 100);
+                var gapCls   = cat.is_significant ? 'text-red-600'
+                             : Math.abs(cat.gap_pct) > 3 ? 'text-amber-600'
+                             : 'text-emerald-600';
+                var smallSample = (cat.male_count < 5 || cat.female_count < 5)
+                    ? '<span class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">\u26a0 Campione ridotto</span>'
+                    : '';
+                return [
+                    '<div class="px-4 py-3 ' + (cat.is_significant ? 'bg-red-50/30' : '') + '">',
+                      '<div class="flex items-start justify-between mb-2 gap-2">',
+                        '<div class="flex items-center gap-1.5 min-w-0 flex-wrap">',
+                          '<span class="text-xs font-semibold text-gray-800 truncate">' + cat.department + '</span>',
+                          '<span class="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full flex-shrink-0">' + cat.level + '</span>',
+                          '<span class="text-[10px] text-gray-400 flex-shrink-0">' + cat.male_count + ' uomini \u00b7 ' + cat.female_count + ' donne</span>',
+                          smallSample,
+                        '</div>',
+                        '<span class="text-xs font-bold flex-shrink-0 ' + gapCls + '">' + fmtPct(cat.gap_pct) + '</span>',
+                      '</div>',
+                      '<div class="space-y-1">',
+                        '<div class="flex items-center gap-2">',
+                          '<span class="text-[10px] text-gray-600 font-semibold w-10 flex-shrink-0">Uomini</span>',
+                          '<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">',
+                            '<div class="h-full bg-gray-700 rounded-full transition-all" style="width:' + maleW + '%"></div>',
+                          '</div>',
+                          '<span class="text-[10px] text-gray-400 w-[4.5rem] text-right flex-shrink-0">' + fmtEur(cat.male_avg) + '</span>',
+                        '</div>',
+                        '<div class="flex items-center gap-2">',
+                          '<span class="text-[10px] text-gray-400 font-medium w-10 flex-shrink-0">Donne</span>',
+                          '<div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">',
+                            '<div class="h-full bg-gray-400 rounded-full transition-all" style="width:' + femW + '%"></div>',
+                          '</div>',
+                          '<span class="text-[10px] text-gray-400 w-[4.5rem] text-right flex-shrink-0">' + fmtEur(cat.female_avg) + '</span>',
+                        '</div>',
+                      '</div>',
+                    '</div>'
+                ].join('');
+            }).join('');
+
+            catBreakdown = [
+                '<div class="bg-white rounded-xl border border-gray-200 mb-4 overflow-hidden">',
+                  '<div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3">',
+                    '<div>',
+                      '<p class="text-sm font-semibold text-gray-800">Gap per Ruolo e Dipartimento</p>',
+                      '<p class="text-[11px] text-gray-400 mt-0.5">',
+                        'Confronto retributivo medio tra uomini e donne nello stesso ruolo. Soglia EU &gt; 5% = azione correttiva richiesta.',
+                        ' &nbsp;<span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-sm bg-gray-700 mb-[1px]"></span>Uomini</span>',
+                        ' &nbsp;<span class="inline-flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-sm bg-gray-400 mb-[1px]"></span>Donne</span>',
+                      '</p>',
+                    '</div>',
+                    '<div class="text-right flex-shrink-0">',
+                      '<span class="text-xs text-gray-400">' + r.category_gaps.length + ' categorie</span>',
+                      ncCount > 0 ? '<br><span class="text-[10px] text-red-500 font-medium">' + ncCount + ' critiche</span>' : '',
+                    '</div>',
+                  '</div>',
+                  '<div class="divide-y divide-gray-50">' + catRows + '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        // ── MUST-05: Quartile Chart ─────────────────────────────────────────
+        var quartileChart = '';
+        if (r.quartiles.length > 0) {
+            var qLabels = { 1: 'Stipendi Bassi', 2: 'Stipendi Medio-Bassi', 3: 'Stipendi Medio-Alti', 4: 'Stipendi Alti' };
+            var qSortedDesc = r.quartiles.slice().sort(function(a, b) { return b.quartile - a.quartile; });
+
+            var qRows = qSortedDesc.map(function(q) {
+                var imbalance = Math.abs(q.male_pct - 50);
+                var squilibrio = imbalance > 15
+                    ? '<span class="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">squilibrio</span>'
+                    : '';
+                var mPctLabel = q.male_pct > 10
+                    ? '<span class="text-[10px] text-white font-bold">' + q.male_pct + '%</span>'
+                    : '';
+                var fPctLabel = q.female_pct > 10
+                    ? '<span class="text-[10px] text-white font-bold">' + q.female_pct + '%</span>'
+                    : '';
+                return [
+                    '<div>',
+                      '<div class="flex items-center justify-between mb-1.5 gap-2">',
+                        '<div class="flex items-center gap-1.5 flex-wrap min-w-0">',
+                          '<span class="text-xs font-bold text-gray-700">Q' + q.quartile + '</span>',
+                          '<span class="text-[10px] text-gray-500 font-medium">' + (qLabels[q.quartile] || '') + '</span>',
+                          '<span class="text-[11px] text-gray-400">' + fmtEur(q.min_salary) + ' \u2013 ' + fmtEur(q.max_salary) + '</span>',
+                        '</div>',
+                        squilibrio,
+                      '</div>',
+                      '<div class="flex h-6 rounded-lg overflow-hidden bg-gray-100">',
+                        '<div class="bg-gray-700 h-full flex items-center justify-center transition-all" style="width:' + q.male_pct + '%" title="' + q.male_count + ' uomini (' + q.male_pct + '%)">' + mPctLabel + '</div>',
+                        '<div class="bg-gray-400 h-full flex items-center justify-center transition-all" style="width:' + q.female_pct + '%" title="' + q.female_count + ' donne (' + q.female_pct + '%)">' + fPctLabel + '</div>',
+                        '<div class="flex-1 bg-gray-100"></div>',
+                      '</div>',
+                      '<div class="flex justify-between mt-1">',
+                        '<span class="text-[10px] text-gray-500">' + q.male_count + ' uomini</span>',
+                        '<span class="text-[10px] text-gray-400">' + q.female_count + ' donne</span>',
+                      '</div>',
+                    '</div>'
+                ].join('');
+            }).join('');
+
+            // Automatic callout
+            var qSortedAsc = r.quartiles.slice().sort(function(a, b) { return a.quartile - b.quartile; });
+            var q1 = qSortedAsc[0];
+            var q4 = qSortedAsc[qSortedAsc.length - 1];
+            var callout = '';
+            if (q4 && q4.male_pct > 60) {
+                callout = '\ud83d\udcca <strong class="font-semibold text-gray-700">Il gap \u00e8 maggiore nelle fasce alte</strong>: poche donne raggiungono i ruoli e le retribuzioni pi\u00f9 elevate.';
+            } else if (q1 && q1.female_pct > 60) {
+                callout = '\ud83d\udcca <strong class="font-semibold text-gray-700">Le donne sono sovrarappresentate nella fascia pi\u00f9 bassa</strong>: pi\u00f9 della met\u00e0 dei lavoratori a bassa retribuzione sono donne.';
+            } else {
+                callout = '\ud83d\udcca Il gap \u00e8 <strong class="font-semibold text-gray-700">distribuito uniformemente</strong> tra le fasce \u2014 non \u00e8 concentrato in un livello retributivo specifico.';
+            }
+
+            quartileChart = [
+                '<div class="bg-white rounded-xl border border-gray-200 mb-4 overflow-hidden">',
+                  '<div class="px-4 py-3 border-b border-gray-100">',
+                    '<p class="text-sm font-semibold text-gray-800">Distribuzione Quartili Salariali</p>',
+                    '<p class="text-[11px] text-gray-400 mt-0.5">Dove si collocano uomini e donne nelle fasce retributive? Distribuzione ideale = 50% uomini / 50% donne in ogni fascia.</p>',
+                    '<div class="flex items-center gap-3 mt-1.5">',
+                      '<span class="flex items-center gap-1 text-[11px] text-gray-500"><span class="inline-block w-3 h-2.5 bg-gray-700 rounded-[2px]"></span>Uomini</span>',
+                      '<span class="flex items-center gap-1 text-[11px] text-gray-400"><span class="inline-block w-3 h-2.5 bg-gray-400 rounded-[2px]"></span>Donne</span>',
+                    '</div>',
+                  '</div>',
+                  '<div class="px-4 py-3 space-y-3.5">' + qRows + '</div>',
+                  '<div class="px-4 pb-4">',
+                    '<div class="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">',
+                      '<p class="text-[11px] text-gray-500 leading-relaxed">' + callout + '</p>',
+                    '</div>',
+                  '</div>',
+                '</div>'
+            ].join('');
+        }
+
+        // ── MUST-06: Prossimi Passi ─────────────────────────────────────────
+        var prossimiPassi = '';
+        if (r.is_compliant) {
+            prossimiPassi = [
+                '<div class="rounded-xl bg-emerald-50 border border-emerald-100 px-5 py-4 mb-4">',
+                  '<div class="flex items-center gap-2 mb-3">',
+                    '<span class="text-base">\u2705</span>',
+                    '<p class="text-sm font-semibold text-emerald-800">Prossimi Passi \u2014 Azienda Conforme</p>',
+                  '</div>',
+                  '<ul class="space-y-2">',
+                    '<li class="flex items-start gap-2"><span class="text-emerald-400 flex-shrink-0 mt-0.5">\u2022</span><p class="text-[12px] text-gray-700">Conserva questo report come documentazione di compliance.</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-emerald-400 flex-shrink-0 mt-0.5">\u2022</span><p class="text-[12px] text-gray-700">Ripeti l\u2019analisi almeno una volta l\u2019anno (obbligatorio per aziende con 250+ dipendenti).</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-emerald-400 flex-shrink-0 mt-0.5">\u2022</span><p class="text-[12px] text-gray-700">Monitora le categorie con gap tra 3\u20135%: sono nella soglia ma potrebbero sforare.</p></li>',
+                  '</ul>',
+                  '<p class="text-[11px] text-gray-400 mt-3">\ud83d\udccc Riferimento normativo: Art. 9, Direttiva EU 2023/970</p>',
+                '</div>'
+            ].join('');
+        } else {
+            var hasHigh   = r.category_gaps.some(function(c) { return c.gap_pct > 10; });
+            var hasMedium = r.category_gaps.some(function(c) { return c.gap_pct > 5 && c.gap_pct <= 10; });
+
+            var highSection = hasHigh ? [
+                '<div class="mb-3">',
+                  '<p class="text-[11px] font-bold text-red-700 uppercase tracking-wider mb-1.5">Priorit\u00e0 Alta \u2014 Gap &gt; 10%</p>',
+                  '<ol class="space-y-1.5">',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">1.</span><p class="text-[12px] text-gray-700">Esegui un\u2019analisi dettagliata del ruolo specifico</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">2.</span><p class="text-[12px] text-gray-700">Documenta le ragioni oggettive della differenza (esperienza, performance, ecc.)</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">3.</span><p class="text-[12px] text-gray-700">Se non giustificabile, prepara un piano di adeguamento retributivo</p></li>',
+                  '</ol>',
+                '</div>'
+            ].join('') : '';
+
+            var mediumSection = hasMedium ? [
+                '<div class="mb-3">',
+                  '<p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1.5">Priorit\u00e0 Media \u2014 Gap 5\u201310%</p>',
+                  '<ol class="space-y-1.5">',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-amber-500 font-bold flex-shrink-0 mt-0.5">1.</span><p class="text-[12px] text-gray-700">Avvia una valutazione retributiva congiunta con i rappresentanti dei dipendenti</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-amber-500 font-bold flex-shrink-0 mt-0.5">2.</span><p class="text-[12px] text-gray-700">Rivedi le pratiche di assunzione e promozione per i ruoli interessati</p></li>',
+                    '<li class="flex items-start gap-2"><span class="text-[11px] text-amber-500 font-bold flex-shrink-0 mt-0.5">3.</span><p class="text-[12px] text-gray-700">Documenta il processo di revisione</p></li>',
+                  '</ol>',
+                '</div>'
+            ].join('') : '';
+
+            var fallback = (!hasHigh && !hasMedium) ? [
+                '<ol class="space-y-1.5 mb-3">',
+                  '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">1.</span><p class="text-[12px] text-gray-700">Avvia una valutazione retributiva congiunta con i rappresentanti dei dipendenti</p></li>',
+                  '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">2.</span><p class="text-[12px] text-gray-700">Documenta le ragioni oggettive della differenza</p></li>',
+                  '<li class="flex items-start gap-2"><span class="text-[11px] text-red-400 font-bold flex-shrink-0 mt-0.5">3.</span><p class="text-[12px] text-gray-700">Prepara un piano di adeguamento retributivo se necessario</p></li>',
+                '</ol>'
+            ].join('') : '';
+
+            prossimiPassi = [
+                '<div class="rounded-xl bg-red-50 border border-red-100 px-5 py-4 mb-4">',
+                  '<div class="flex items-center gap-2 mb-2">',
+                    '<span class="text-base">\u26a0\ufe0f</span>',
+                    '<p class="text-sm font-semibold text-red-800">Prossimi Passi \u2014 Azione Richiesta</p>',
+                  '</div>',
+                  '<p class="text-[12px] text-gray-600 mb-3">',
+                    'Hai <strong class="font-semibold">6 mesi</strong> dalla data di rilevazione per avviare le azioni correttive.',
+                  '</p>',
+                  highSection,
+                  mediumSection,
+                  fallback,
+                  '<p class="text-[11px] text-gray-400">\ud83d\udccc Riferimento normativo: Art. 9-10, Direttiva EU 2023/970</p>',
+                '</div>'
+            ].join('');
+        }
+
+        return '<div class="w-full pb-2">' + banner + kpiCards + catBreakdown + quartileChart + prossimiPassi + '</div>';
+    }
+
+    // =========================================================================
+    // UI HELPERS
+    // =========================================================================
+
+    var colRefOpen = false;
+
+    function toggleColRef() {
+        colRefOpen = !colRefOpen;
+        document.getElementById('col-ref').style.display = colRefOpen ? 'block' : 'none';
+        document.getElementById('col-ref-chevron').style.transform = colRefOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function showError(msg) {
+        document.getElementById('error-msg').textContent = msg;
+        document.getElementById('error-box').style.display = 'flex';
+    }
+
+    function hideError() {
+        document.getElementById('error-box').style.display = 'none';
+    }
+
+    function showLoading() {
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('privacy-banner').style.display = 'none';
+        document.getElementById('loading').style.display = 'block';
+    }
+
+    function showResults(result, filename, nMale, nFemale, nTotal, skipped) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('results-section').style.display = 'block';
+        document.getElementById('cta-portal').style.display = 'block';
+        document.getElementById('btn-print').style.display = 'flex';
+        document.getElementById('btn-new').style.display = 'flex';
+
+        // Update print date
+        var now = new Date();
+        var dateStr = now.toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' });
+        var el = document.getElementById('print-date');
+        if (el) el.textContent = dateStr;
+
+        // LOC-10: Parse stats pill
+        var statsHtml = [
+            '<span class="inline-flex items-center gap-1.5 text-[11px] text-gray-600 bg-white border border-gray-200 px-2.5 py-1 rounded-full">',
+              '<svg class="w-3 h-3 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+              '<strong class="font-semibold text-gray-800">' + nTotal + '</strong> dipendenti analizzati',
+            '</span>',
+            '<span class="inline-flex items-center gap-1 text-[11px] text-gray-500 bg-white border border-gray-200 px-2.5 py-1 rounded-full">',
+              '<span class="w-2 h-2 rounded-sm bg-gray-700 flex-shrink-0"></span>' + nMale + ' uomini',
+            '</span>',
+            '<span class="inline-flex items-center gap-1 text-[11px] text-gray-500 bg-white border border-gray-200 px-2.5 py-1 rounded-full">',
+              '<span class="w-2 h-2 rounded-sm bg-gray-400 flex-shrink-0"></span>' + nFemale + ' donne',
+            '</span>',
+            skipped > 0 ? '<span class="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">\u26a0 ' + skipped + ' ' + (skipped === 1 ? 'riga scartata' : 'righe scartate') + ' (genere/salary non validi)</span>' : ''
+        ].join('');
+        document.getElementById('parse-stats').innerHTML = statsHtml;
+
+        // Render dashboard
+        document.getElementById('dashboard').innerHTML = renderDashboard(result, filename, nMale, nFemale, nTotal);
+
+        // Scroll to results
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function resetTool() {
+        document.getElementById('upload-section').style.display = 'block';
+        document.getElementById('privacy-banner').style.display = 'flex';
+        document.getElementById('results-section').style.display = 'none';
+        document.getElementById('cta-portal').style.display = 'none';
+        document.getElementById('btn-print').style.display = 'none';
+        document.getElementById('btn-new').style.display = 'none';
+        document.getElementById('file-input').value = '';
+        hideError();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // =========================================================================
+    // FILE PROCESSING
+    // =========================================================================
+
+    function processFile(file) {
+        if (!file) return;
+
+        // Validate extension (LOC-06)
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showError("Questo file non sembra un CSV. Prova a esportare da Excel come \u2018CSV UTF-8\u2019.");
+            return;
+        }
+
+        // Max 10 MB
+        if (file.size > 10 * 1024 * 1024) {
+            showError("File troppo grande. Il limite massimo \u00e8 10 MB.");
+            return;
+        }
+
+        hideError();
+        showLoading();
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var parsed  = validateAndParse(e.target.result);
+                var result  = fullAnalysis(parsed.rows);
+                var nMale   = parsed.rows.filter(function(r) { return r.gender === 'M'; }).length;
+                var nFemale = parsed.rows.filter(function(r) { return r.gender === 'F'; }).length;
+                showResults(result, file.name, nMale, nFemale, parsed.rows.length, parsed.skipped);
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('upload-section').style.display = 'block';
+                document.getElementById('privacy-banner').style.display = 'flex';
+                showError(err.message);
+            }
+        };
+        reader.onerror = function() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('upload-section').style.display = 'block';
+            document.getElementById('privacy-banner').style.display = 'flex';
+            showError("Impossibile leggere il file. Verifica che non sia corrotto.");
+        };
+        reader.readAsText(file, 'UTF-8');
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS
+    // =========================================================================
+
+    // File input
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
+    });
+
+    // Drag and drop
+    var dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('drop-active');
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+        if (!dropZone.contains(e.relatedTarget)) {
+            dropZone.classList.remove('drop-active');
+        }
+    });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('drop-active');
+        var file = e.dataTransfer.files[0];
+        if (file) processFile(file);
+    });
+
+    // =========================================================================
+    // LOC-07: CSV template download (20 realistic rows, 5 dept, 2 levels, bonus)
+    // =========================================================================
+    function downloadTemplate() {
+        var lines = [
+            'gender,base_salary,department,level,bonus',
+            'M,52000,Ingegneria,Senior,4500',
+            'F,49500,Ingegneria,Senior,4200',
+            'M,47000,Ingegneria,Senior,3800',
+            'F,46000,Ingegneria,Senior,3600',
+            'M,38000,Ingegneria,Junior,2500',
+            'F,37500,Ingegneria,Junior,2400',
+            'M,36500,Ingegneria,Junior,2200',
+            'F,35000,Ingegneria,Junior,2100',
+            'M,61000,Marketing,Senior,6000',
+            'F,55000,Marketing,Senior,5200',
+            'M,58000,Marketing,Senior,5800',
+            'F,53000,Marketing,Senior,4900',
+            'M,42000,Marketing,Junior,3000',
+            'F,41000,Marketing,Junior,2900',
+            'M,40000,Marketing,Junior,2700',
+            'F,39000,Marketing,Junior,2600',
+            'M,71000,Direzione,Senior,9000',
+            'F,65000,Direzione,Senior,7500',
+            'M,68000,Direzione,Senior,8200',
+            'F,62000,Direzione,Senior,7000',
+            'M,45000,Vendite,Senior,8500',
+            'F,43000,Vendite,Senior,7800',
+            'M,44000,Vendite,Senior,8000',
+            'F,42500,Vendite,Senior,7600',
+            'M,32000,Vendite,Junior,4500',
+            'F,31500,Vendite,Junior,4200',
+            'M,31000,Vendite,Junior,4000',
+            'F,30500,Vendite,Junior,3800',
+            'M,48000,HR,Senior,3200',
+            'F,47500,HR,Senior,3100',
+            'M,46000,HR,Senior,3000',
+            'F,45500,HR,Senior,2900',
+            'M,34000,HR,Junior,1800',
+            'F,33500,HR,Junior,1750',
+            'M,33000,HR,Junior,1700',
+            'F,32500,HR,Junior,1650'
+        ];
+        var csv  = lines.join('\n');
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'esempio-dati.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+    </script>
+
+</body>
+</html>

@@ -5,6 +5,7 @@ Restituisce JSON (non HTML) con lo stato dei componenti del sistema:
 - api: sempre "ok" se l'endpoint risponde
 - vectordb: verifica che la collection Qdrant esista
 - llm_configured: verifica che la GROQ_API_KEY sia impostata
+- analytics: metriche di utilizzo delle ultime 24h
 
 Utile per health check automatici, load balancer, o debug.
 """
@@ -36,6 +37,7 @@ def health_check():
             "vectordb": _check_vectordb(),
             "llm_configured": _check_llm_key(),
         },
+        "analytics_24h": _get_analytics_24h(),
     }
 
     # Se qualche componente non e' "ok", lo stato generale diventa "degraded"
@@ -79,3 +81,31 @@ def _check_llm_key() -> str:
     if key:
         return "ok"
     return "missing GROQ_API_KEY"
+
+
+def _get_analytics_24h() -> dict:
+    """
+    Legge metriche di utilizzo delle ultime 24h dal database analytics.
+
+    Restituisce un dizionario con:
+    - total_queries: numero totale di query
+    - avg_confidence: confidence score medio (None se nessun dato)
+    - unanswered_count: query senza risposta (confidence < 0.4 o frasi di "non so")
+
+    In caso di errore (DB assente, inaccessibile) restituisce un dict con "error".
+    """
+    try:
+        from src.utils.analytics import get_analytics
+        summary = get_analytics().get_summary(days=1)
+
+        if "error" in summary:
+            return {"error": summary["error"]}
+
+        return {
+            "total_queries": summary["total_queries"],
+            "avg_confidence": summary["avg_confidence"],
+            "unanswered_count": summary["unanswered_count"],
+        }
+    except Exception as e:
+        logger.warning(f"Health check analytics fallito: {e}")
+        return {"error": str(e)}

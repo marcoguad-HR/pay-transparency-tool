@@ -35,13 +35,46 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown lifecycle. Crea directory e precarica il pipeline RAG."""
+    """Startup/shutdown lifecycle. Crea directory e valida configurazione."""
+    import logging
+    import os
+
     TEMPLATES_DIR.mkdir(exist_ok=True)
 
-    # Nota: il preload del PayTransparencyRouter e' disabilitato perche'
-    # puo' bloccare il boot se Groq API e' lenta o irraggiungibile.
-    # Sia il router che il RAGGenerator si inizializzano lazy alla prima query
-    # (via singleton con double-checked locking).
+    startup_logger = logging.getLogger("pay_transparency.startup")
+
+    # --- Validazione GROQ_API_KEY ---
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key:
+        startup_logger.info("GROQ_API_KEY: configurata ✓")
+    else:
+        startup_logger.error(
+            "GROQ_API_KEY: MANCANTE ✗ — le query AI falliranno. "
+            "Imposta la variabile d'ambiente: export GROQ_API_KEY=<la_tua_chiave>"
+        )
+
+    # --- Validazione config.yaml ---
+    config_path = BASE_DIR / "config.yaml"
+    config_example = BASE_DIR / "config.yaml.example"
+    if config_path.exists():
+        startup_logger.info("config.yaml: trovato ✓")
+    elif config_example.exists():
+        startup_logger.warning(
+            "config.yaml: non trovato, uso fallback config.yaml.example. "
+            "Copia il file: cp config.yaml.example config.yaml"
+        )
+    else:
+        startup_logger.error("config.yaml: non trovato e nessun fallback disponibile ✗")
+
+    # --- Validazione vectordb ---
+    vectordb_path = BASE_DIR / "data" / "vectordb"
+    if vectordb_path.exists() and any(vectordb_path.iterdir()):
+        startup_logger.info("vectordb: presente ✓")
+    else:
+        startup_logger.warning(
+            "vectordb: non trovato o vuoto — il RAG non funzionerà. "
+            "Esegui lo script di ingestion per costruire il database vettoriale."
+        )
 
     yield
 

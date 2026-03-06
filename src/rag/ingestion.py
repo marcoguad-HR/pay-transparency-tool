@@ -121,47 +121,75 @@ class DirectiveIngestion:
         self.vectorstore = QdrantVectorstore(location=None, path=vs_path)
         logger.info(f"Qdrant configurato: path={vs_path}")
 
-    def ingest(self, pdf_path: str) -> int:
+    def ingest(self, path: str) -> int:
         """
-        Esegue l'intera pipeline di ingestion su un file PDF.
+        Esegue la pipeline su un file singolo (.pdf, .md, .txt) o una cartella.
 
-        Args:
-            pdf_path: percorso del file PDF da processare.
+        Se path è una cartella, processa tutti i .pdf, .md e .txt al suo interno
+        e ricostruisce l'indice BM25 con tutti i chunk in un'unica passata.
 
         Returns:
-            Il numero di chunk creati e salvati nel vector DB.
-
-        Esempio:
-            n = ingestion.ingest("data/documents/CELEX_32023L0970_EN_TXT.pdf")
-            print(f"Creati {n} chunk")  # → "Creati 127 chunk"
+            Numero totale di chunk creati e salvati nel vector DB.
         """
-        pdf_path = str(Path(pdf_path))  # Normalizza il percorso
+        input_path = Path(path)
+        if input_path.is_dir():
+            return self._ingest_directory(input_path)
+        return self._ingest_single_file(str(input_path))
 
-        logger.info(f"Inizio ingestion: {pdf_path}")
+    def _ingest_directory(self, dir_path: Path) -> int:
+        """Processa tutti i file .pdf, .md e .txt in una cartella."""
+        files_by_ext = {
+            ".pdf": sorted(dir_path.glob("*.pdf")),
+            ".md":  sorted(dir_path.glob("*.md")),
+            ".txt": sorted(dir_path.glob("*.txt")),
+        }
+        total = sum(len(v) for v in files_by_ext.values())
+        logger.info(f"Inizio ingestion cartella: {dir_path} — {total} file trovati")
+        for ext, files in files_by_ext.items():
+            if files:
+                logger.info(f"  {ext}: {len(files)} file ({', '.join(f.name for f in files)})")
 
-        # Step 1: Estrai testo dal PDF
-        text = self._extract_text(pdf_path)
+        if total == 0:
+            logger.warning("Nessun file .pdf, .md o .txt trovato nella cartella")
+            return 0
 
-        # Step 2: Parsing — testo grezzo → albero strutturato
-        node = self._parse_text(text, source=pdf_path)
+        all_chunks: list[Chunk] = []
+        for ext, files in files_by_ext.items():
+            for file_path in files:
+                all_chunks.extend(self._extract_embed_store(str(file_path)))
 
-        # Step 3: Chunking — albero → lista di chunk
-        chunks = self._split_into_chunks(node, source=pdf_path)
+        if all_chunks:
+            self._build_bm25_index(all_chunks)
+        logger.info(f"Ingestion cartella completata! {len(all_chunks)} chunk totali da {total} file")
+        return len(all_chunks)
 
-        # Step 3.5: Header contestuali — aggiunge articolo/sezione a ogni chunk
-        chunks = self._add_chunk_headers(chunks)
-
-        # Step 4: Embedding — testo di ogni chunk → vettore numerico
-        chunks = self._embed_chunks(chunks)
-
-        # Step 5: Salvataggio in Qdrant
-        self._store_chunks(chunks)
-
-        # Step 6: Costruzione indice BM25 per fusion retrieval
-        self._build_bm25_index(chunks)
-
-        logger.info(f"Ingestion completata! {len(chunks)} chunk salvati in Qdrant")
+    def _ingest_single_file(self, file_path: str) -> int:
+        """Processa un singolo file e aggiorna l'indice BM25."""
+        logger.info(f"Inizio ingestion: {file_path}")
+        chunks = self._extract_embed_store(file_path)
+        if chunks:
+            self._build_bm25_index(chunks)
+            logger.info(f"Ingestion completata! {len(chunks)} chunk salvati in Qdrant")
         return len(chunks)
+
+    def _extract_embed_store(self, file_path: str) -> list[Chunk]:
+        """Steps 1–5 per un singolo file: estrai → parse → chunk → embed → store."""
+        file_path = str(Path(file_path))
+        ext = Path(file_path).suffix.lower()
+
+        if ext == ".pdf":
+            text = self._extract_text(file_path)
+        elif ext in (".md", ".txt"):
+            text = self._extract_text_from_markdown(file_path)
+        else:
+            raise ValueError(f"Formato non supportato: {ext}. Usa .pdf, .md o .txt")
+
+        node = self._parse_text(text, source=file_path)
+        chunks = self._split_into_chunks(node, source=file_path)
+        chunks = self._add_chunk_headers(chunks)
+        chunks = self._embed_chunks(chunks)
+        self._store_chunks(chunks)
+        return chunks
 
     def _extract_text(self, pdf_path: str) -> str:
         """
@@ -194,6 +222,34 @@ class DirectiveIngestion:
         clean_text = "\n".join(cleaned_lines)
 
         logger.info(f"  Estratti {len(clean_text)} caratteri da {num_pages} pagine")
+        return clean_text
+
+    def _extract_text_from_markdown(self, file_path: str) -> str:
+        """
+        Step 1 (alternativo): Legge il testo da un file .md o .txt come testo UTF-8.
+
+        A differenza dei PDF, non richiede librerie esterne — usa solo open().
+        Applica la stessa pulizia dei PDF: compatta righe vuote eccessive.
+        """
+        logger.info(f"Step 1/5: Lettura file testo: {file_path}")
+        with open(file_path, encoding="utf-8") as f:
+            text = f.read()
+
+        # Compatta righe vuote consecutive (max 2) come per i PDF
+        lines = text.split("\n")
+        cleaned: list[str] = []
+        empty_count = 0
+        for line in lines:
+            if line.strip() == "":
+                empty_count += 1
+                if empty_count <= 2:
+                    cleaned.append(line)
+            else:
+                empty_count = 0
+                cleaned.append(line)
+
+        clean_text = "\n".join(cleaned)
+        logger.info(f"  Letti {len(clean_text)} caratteri da {file_path}")
         return clean_text
 
     def _parse_text(self, text: str, source: str) -> object:
@@ -249,40 +305,34 @@ class DirectiveIngestion:
         """
         Step 3.5: Aggiunge header contestuali a ogni chunk.
 
-        La Direttiva EU 2023/970 ha una struttura chiara:
-        - "Article N" seguito da un titolo
-        - Capitoli (CHAPTER I, II, ...)
-        - Recital numerati (1), (2), ...
-
-        Per ogni chunk, rileviamo a quale articolo/sezione appartiene
-        e lo preponiamo al testo. Questo migliora il retrieval perche'
-        l'embedding cattura il contesto strutturale, non solo il testo grezzo.
-
-        Esempio:
-            Prima:  "Member States shall ensure that employers with..."
-            Dopo:   "[Article 9 - Pay reporting]\nMember States shall ensure..."
+        Rileva il tipo di file dal metadata 'source' e delega:
+        - .pdf      → _add_pdf_article_headers (pattern "Article N")
+        - .md / .txt → _add_markdown_headers   (pattern "# Heading")
         """
         logger.info("Step 3.5: Aggiunta header contestuali ai chunk...")
+        if not chunks:
+            return chunks
 
-        # Pattern per rilevare gli header degli articoli nella Direttiva EU
-        # Formato tipico: "Article 10\nJoint pay assessment"
+        source = (chunks[0].metadata or {}).get("source", "")
+        ext = Path(source).suffix.lower() if source else ""
+
+        if ext in (".md", ".txt"):
+            return self._add_markdown_headers(chunks)
+        return self._add_pdf_article_headers(chunks)
+
+    def _add_pdf_article_headers(self, chunks: list[Chunk]) -> list[Chunk]:
+        """Header per PDF Direttiva EU: pattern 'Article N\\nTitolo'."""
         article_pattern = re.compile(
             r'Article\s+(\d+)\s*\n\s*([^\n]+)', re.IGNORECASE
         )
-
         current_header = ""
         headers_found = 0
 
         for chunk in chunks:
-            # Cerca se questo chunk contiene un nuovo header di articolo
             match = article_pattern.search(chunk.text)
             if match:
-                art_num = match.group(1)
-                art_title = match.group(2).strip()
-                current_header = f"Article {art_num} - {art_title}"
+                current_header = f"Article {match.group(1)} - {match.group(2).strip()}"
                 headers_found += 1
-
-            # Preponi l'header al testo del chunk e salvalo nei metadata
             if current_header:
                 chunk.text = f"[{current_header}]\n{chunk.text}"
                 if chunk.metadata is None:
@@ -290,6 +340,28 @@ class DirectiveIngestion:
                 chunk.metadata["article_header"] = current_header
 
         logger.info(f"  {headers_found} articoli rilevati, "
+                    f"header aggiunti a {len(chunks)} chunk")
+        return chunks
+
+    def _add_markdown_headers(self, chunks: list[Chunk]) -> list[Chunk]:
+        """Header per file Markdown: pattern '# Heading' e '## Heading'."""
+        md_header_pattern = re.compile(r'^(#{1,2})\s+(.+)$', re.MULTILINE)
+        current_header = ""
+        headers_found = 0
+
+        for chunk in chunks:
+            match = md_header_pattern.search(chunk.text)
+            if match:
+                level = "Sezione" if len(match.group(1)) == 1 else "Sottosezione"
+                current_header = f"{level}: {match.group(2).strip()}"
+                headers_found += 1
+            if current_header:
+                chunk.text = f"[{current_header}]\n{chunk.text}"
+                if chunk.metadata is None:
+                    chunk.metadata = {}
+                chunk.metadata["article_header"] = current_header
+
+        logger.info(f"  {headers_found} sezioni Markdown rilevate, "
                     f"header aggiunti a {len(chunks)} chunk")
         return chunks
 
