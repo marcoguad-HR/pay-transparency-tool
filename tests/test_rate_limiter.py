@@ -33,7 +33,7 @@ class TestInvokeWithRetry:
 
         assert result.text == "risposta ok"
         assert client.invoke.call_count == 2
-        mock_sleep.assert_called_once_with(2.0)  # BASE_DELAY
+        mock_sleep.assert_called_once_with(1.0)  # BASE_DELAY
 
     @patch("src.utils.rate_limiter.time.sleep")
     def test_retry_multipli_con_backoff(self, mock_sleep):
@@ -50,8 +50,8 @@ class TestInvokeWithRetry:
         assert result.text == "finalmente"
         assert client.invoke.call_count == 3
         assert mock_sleep.call_count == 2
-        mock_sleep.assert_any_call(2.0)   # 2^0 * 2
-        mock_sleep.assert_any_call(4.0)   # 2^1 * 2
+        mock_sleep.assert_any_call(1.0)   # 2^0 * 1
+        mock_sleep.assert_any_call(2.0)   # 2^1 * 1
 
     @patch("src.utils.rate_limiter.time.sleep")
     def test_rate_limit_error_dopo_max_retry(self, mock_sleep):
