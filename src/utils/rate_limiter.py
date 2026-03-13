@@ -25,7 +25,7 @@ logger = get_logger("utils.rate_limiter")
 
 # --- Configurazione retry ---
 MAX_RETRIES = 3       # Numero massimo di tentativi dopo il primo fallimento
-BASE_DELAY = 2.0      # Secondi di attesa al primo retry
+BASE_DELAY = 1.0      # Secondi di attesa al primo retry (backoff: 1s, 2s, 4s)
 MAX_DELAY = 60.0      # Tetto massimo di attesa (per non bloccare troppo)
 
 
@@ -43,7 +43,7 @@ def invoke_with_retry(client, prompt: str, max_retries: int = MAX_RETRIES):
     """
     Chiama client.invoke(prompt) con retry automatico su HTTP 429.
 
-    Strategia: exponential backoff (2s, 4s, 8s, ...) fino a MAX_DELAY.
+    Strategia: exponential backoff (1s, 2s, 4s, ...) fino a MAX_DELAY.
 
     Args:
         client: istanza di datapizza OpenAIClient (Groq)
