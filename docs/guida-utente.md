@@ -370,7 +370,7 @@ Esegui l'analisi 3 volte (una per ogni annualità) e confronta i risultati. Note
 
 ### Contatti
 Per segnalazioni, suggerimenti, o problemi:
-- **Repository GitHub**: [link al progetto]
+- **Repository GitHub**: [pay-transparency-tool](https://github.com/marcoguad-HR/pay-transparency-tool/tree/main)
 - **Email**: [contatto di supporto, se disponibile]
 
 ---

@@ -19,6 +19,7 @@ Esempi:
 """
 
 import functools
+import re
 import time
 
 from src.utils.logger import get_logger
@@ -26,9 +27,24 @@ from src.utils.logger import get_logger
 logger = get_logger("utils.retry")
 
 # --- Configurazione ---
-_MAX_RETRIES = 3
-_BASE_DELAY = 1.0    # secondi — backoff: 1s, 2s, 4s
-_MAX_DELAY = 60.0    # tetto massimo
+_MAX_RETRIES = 1     # Un solo retry dopo _MAX_DELAY (TPM window ~60s)
+_BASE_DELAY = 1.0    # Non usato nel fallback, mantenuto per compatibilità
+_MAX_DELAY = 70.0    # tetto massimo (>60s per coprire la finestra TPM di Groq)
+
+
+def _parse_retry_after(error_str: str) -> float | None:
+    """
+    Estrae il tempo di attesa suggerito da Groq dall'errore 429.
+
+    Groq include nei messaggi di rate limit la riga:
+        'Please try again in 10.47s'
+    Parsando questo valore usiamo esattamente il tempo necessario invece
+    di un backoff fisso che potrebbe essere troppo breve (TPM window ~60s).
+    """
+    match = re.search(r"try again in (\d+(?:\.\d+)?)s", error_str, re.IGNORECASE)
+    if match:
+        return float(match.group(1)) + 1.0  # +1s di margine di sicurezza
+    return None
 
 # Messaggio user-friendly quando tutti i retry sono esauriti
 _EXHAUSTED_MSG = (
@@ -77,10 +93,12 @@ def call_with_retry(fn, *args, max_retries: int = _MAX_RETRIES, **kwargs):
             if attempt == max_retries:
                 raise RateLimitError(_EXHAUSTED_MSG) from e
 
-            delay = min(_BASE_DELAY * (2 ** attempt), _MAX_DELAY)
+            groq_wait = _parse_retry_after(str(e).lower())
+            delay = groq_wait if groq_wait else _MAX_DELAY
             logger.warning(
                 f"Rate limit (tentativo {attempt + 1}/{max_retries + 1}). "
-                f"Retry tra {delay:.0f}s... [{type(e).__name__}]"
+                f"Retry tra {delay:.1f}s... [{type(e).__name__}]"
+                + (" [Groq suggested]" if groq_wait else " [backoff]")
             )
             time.sleep(delay)
 

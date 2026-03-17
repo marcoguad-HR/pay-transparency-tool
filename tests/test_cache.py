@@ -117,6 +117,7 @@ class TestTTL:
     def test_entry_scaduta_ritorna_none(self):
         """TTL=1s: dopo 1.1s la entry deve essere scaduta."""
         c = ResponseCache(max_size=10, ttl_seconds=1)
+        c._embedder_failed = True  # evita caricamento FastEmbed (lento, non necessario qui)
         c.set("domanda", "risposta")
         assert c.get("domanda") == "risposta"
 
@@ -127,12 +128,14 @@ class TestTTL:
     def test_entry_non_scaduta_ritorna_risposta(self):
         """TTL=60s: subito dopo set, deve funzionare."""
         c = ResponseCache(max_size=10, ttl_seconds=60)
+        c._embedder_failed = True  # evita caricamento FastEmbed (lento, non necessario qui)
         c.set("domanda", "risposta")
         assert c.get("domanda") == "risposta"
 
     def test_entry_scaduta_rimossa_dalla_cache(self):
         """Dopo TTL, la entry scaduta viene rimossa dalla cache."""
         c = ResponseCache(max_size=10, ttl_seconds=1)
+        c._embedder_failed = True  # evita caricamento FastEmbed (lento, non necessario qui)
         c.set("domanda", "risposta")
         time.sleep(1.1)
         c.get("domanda")  # questo dovrebbe rimuovere la entry scaduta

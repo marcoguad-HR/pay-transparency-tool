@@ -3,7 +3,7 @@
 Benvenuto nelle domande frequenti del **Pay Transparency Tool**. Questo documento è organizzato per tre diverse audience: professionisti HR, implementatori tecnici e utenti generali.
 
 **Strumento:** https://pay-transparency.marcog-ai4hr.cloud/
-**Repository:** https://github.com/marcoguad-HR/pay-transparency-tool
+**Repository:** https://github.com/marcoguad-HR/pay-transparency-tool/tree/main
 
 ---
 

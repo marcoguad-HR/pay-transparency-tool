@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse
 
 from src.utils.cache import get_cache
 from src.utils.logger import get_logger
+from src.utils.analytics import get_analytics
 from src.utils.rate_limiter import RateLimitError
 
 logger = get_logger("web.api.chat")
@@ -130,6 +131,9 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
 
     logger.info(f"Chat request [{client_ip}]: '{text[:80]}'" if len(text) > 80 else f"Chat request [{client_ip}]: '{text}'")
 
+    start_time = time.monotonic()
+    user_agent = request.headers.get("user-agent", "")
+
     # --- Rate limit per IP ---
     if not _check_ip_rate_limit(client_ip):
         user_bubble_html = templates.TemplateResponse(
@@ -144,6 +148,14 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
                 "timestamp": timestamp,
             },
         ).body.decode()
+        get_analytics().log_query(
+            query_text=text,
+            response_time_ms=0,
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="blocked",
+            error="ip_rate_limit",
+        )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
 
     # Bolla utente — la mostriamo sempre, anche se poi l'agent fallisce
@@ -166,6 +178,14 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             },
         ).body.decode()
         logger.info("Chat response servita da cache (0 Groq calls)")
+        get_analytics().log_query(
+            query_text=text,
+            response_text=cached_answer,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="cache",
+        )
         return HTMLResponse(content=user_bubble_html + assistant_html)
 
     # Fast-path: query sulla normativa → RAG diretto (1 LLM call).
@@ -199,6 +219,14 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
         ).body.decode()
 
         logger.info("Chat response generata con successo (salvata in cache)")
+        get_analytics().log_query(
+            query_text=text,
+            response_text=answer,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="agent" if use_agent else "rag",
+        )
         return HTMLResponse(content=user_bubble_html + assistant_html)
 
     except asyncio.TimeoutError:
@@ -212,6 +240,14 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             },
         ).body.decode()
         # HTMX ignora 5xx by default. Usiamo 200 per renderizzare l'errore nella chat.
+        get_analytics().log_query(
+            query_text=text,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="agent" if use_agent else "rag",
+            error="timeout_90s",
+        )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
 
     except RateLimitError as e:
@@ -220,6 +256,14 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             "partials/chat_error.html",
             {"request": request, "error": str(e), "timestamp": timestamp},
         ).body.decode()
+        get_analytics().log_query(
+            query_text=text,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="agent" if use_agent else "rag",
+            error=f"groq_rate_limit: {e}",
+        )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
 
     except Exception as e:
@@ -245,4 +289,12 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
                 "timestamp": timestamp,
             },
         ).body.decode()
+        get_analytics().log_query(
+            query_text=text,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="agent" if use_agent else "rag",
+            error=f"{type(e).__name__}: {str(e)[:200]}",
+        )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)

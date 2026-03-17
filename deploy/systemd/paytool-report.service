@@ -1,0 +1,26 @@
+[Unit]
+Description=Pay Transparency Tool — Daily Analytics Report
+After=network.target
+Wants=paytool.service
+
+[Service]
+Type=oneshot
+User=paytool
+Group=paytool
+WorkingDirectory=/home/paytool/pay-transparency-tool
+ExecStart=/home/paytool/pay-transparency-tool/scripts/daily_report.sh
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Logging su journald (stdout + stderr)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paytool-report
+
+# Hardening minimale
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/paytool/pay-transparency-tool/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

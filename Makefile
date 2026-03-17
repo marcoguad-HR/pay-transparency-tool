@@ -1,4 +1,4 @@
-.PHONY: setup setup-clean test verify web cli freeze report report-weekly report-save help
+.PHONY: setup setup-clean test verify web cli freeze report report-weekly report-save report-linkedin template help
 
 help:  ## Mostra comandi disponibili
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -33,3 +33,9 @@ report-weekly:  ## Report utilizzo ultimi 7 giorni
 
 report-save:  ## Salva report su file con data odierna
 	.venv/bin/python scripts/generate_report.py --output data/report_$(shell date +%Y%m%d).txt
+
+report-linkedin:  ## Genera snippet KPI per post LinkedIn
+	.venv/bin/python scripts/generate_report.py --linkedin
+
+template:  ## Rigenera il template Excel per analisi dati
+	.venv/bin/python scripts/generate_template.py

@@ -17,6 +17,7 @@ dovrebbe duplicare la stessa logica try/except. Centralizzando qui,
 ogni call site cambia solo: client.invoke(prompt) -> invoke_with_retry(client, prompt)
 """
 
+import re
 import time
 
 from src.utils.logger import get_logger
@@ -24,9 +25,24 @@ from src.utils.logger import get_logger
 logger = get_logger("utils.rate_limiter")
 
 # --- Configurazione retry ---
-MAX_RETRIES = 3       # Numero massimo di tentativi dopo il primo fallimento
-BASE_DELAY = 1.0      # Secondi di attesa al primo retry (backoff: 1s, 2s, 4s)
-MAX_DELAY = 60.0      # Tetto massimo di attesa (per non bloccare troppo)
+MAX_RETRIES = 1       # Un solo retry dopo MAX_DELAY (TPM window ~60s)
+BASE_DELAY = 1.0      # Non usato nel fallback, mantenuto per compatibilità
+MAX_DELAY = 70.0      # Attesa fallback (>60s per coprire la finestra TPM)
+
+
+def _parse_retry_after(error_str: str) -> float | None:
+    """
+    Estrae il tempo di attesa suggerito da Groq dall'errore 429.
+
+    Groq include nei messaggi di rate limit la riga:
+        'Please try again in 10.47s'
+    Parsando questo valore usiamo esattamente il tempo necessario invece
+    di un backoff fisso che potrebbe essere troppo breve (TPM window ~60s).
+    """
+    match = re.search(r"try again in (\d+(?:\.\d+)?)s", error_str, re.IGNORECASE)
+    if match:
+        return float(match.group(1)) + 1.0  # +1s di margine di sicurezza
+    return None
 
 
 class RateLimitError(Exception):
@@ -90,10 +106,13 @@ def invoke_with_retry(client, prompt: str, max_retries: int = MAX_RETRIES):
                     "Free tier: 30 req/min, 14.400 req/giorno."
                 ) from e
 
-            # Calcola delay con exponential backoff
-            delay = min(BASE_DELAY * (2 ** attempt), MAX_DELAY)
+            # Usa il retry time suggerito da Groq se disponibile,
+            # altrimenti exponential backoff standard.
+            groq_wait = _parse_retry_after(error_str)
+            delay = groq_wait if groq_wait else MAX_DELAY
             logger.warning(
                 f"Rate limit raggiunto (tentativo {attempt + 1}/{max_retries + 1}). "
-                f"Retry tra {delay:.0f}s..."
+                f"Retry tra {delay:.1f}s..."
+                + (" [Groq suggested]" if groq_wait else " [backoff]")
             )
             time.sleep(delay)

@@ -228,6 +228,121 @@ def generate_report(days: int = 30, db_path: str = "./data/analytics.db") -> str
 # HELPER
 # =============================================================================
 
+def generate_linkedin_snippet(days: int = 30, db_path: str = "./data/analytics.db") -> str:
+    """
+    Genera un testo pronto per un post LinkedIn con i KPI principali.
+
+    Args:
+        days: periodo di analisi in giorni
+        db_path: percorso del database SQLite
+
+    Returns:
+        Testo formattato per LinkedIn (copy-paste ready)
+    """
+    db = AnalyticsLogger(db_path=db_path)
+    data = db.get_summary(days=days)
+
+    if "error" in data or data["total_queries"] == 0:
+        return "Nessun dato disponibile per generare il post LinkedIn.\n"
+
+    total = data["total_queries"]
+    countries = data["country_breakdown"]
+    tool_bd = data["tool_breakdown"]
+    unanswered_pct = data["unanswered_pct"]
+
+    # Calcola utenti unici (distinct IP) — query diretta
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    since = data["since"]
+    unique_ips = conn.execute(
+        "SELECT COUNT(DISTINCT ip_address) FROM query_logs WHERE timestamp >= ?",
+        (since,),
+    ).fetchone()[0]
+    conn.close()
+
+    # Paesi (esclusi local e unknown)
+    real_countries = {k: v for k, v in countries.items() if k not in ("local", "unknown", None)}
+    n_countries = len(real_countries)
+    country_list = ", ".join(
+        f"{k} ({v})" for k, v in sorted(real_countries.items(), key=lambda x: -x[1])[:5]
+    )
+
+    # Tool usage
+    rag_count = tool_bd.get("rag", 0) + tool_bd.get("cache", 0)
+    agent_count = tool_bd.get("agent", 0) + tool_bd.get("analyze_pay_gap", 0)
+
+    # Top domande (non unanswered — le piu' frequenti in generale)
+    conn = sqlite3.connect(db_path)
+    top_queries = conn.execute(
+        """
+        SELECT query_text, COUNT(*) as cnt
+        FROM query_logs
+        WHERE timestamp >= ? AND tool_used NOT IN ('blocked', 'backfill')
+        GROUP BY query_text
+        ORDER BY cnt DESC
+        LIMIT 5
+        """,
+        (since,),
+    ).fetchall()
+    conn.close()
+
+    lines = [
+        "=" * 50,
+        "  POST LINKEDIN — KPI Pay Transparency Tool",
+        "=" * 50,
+        "",
+        "--- DATI GREZZI (scegli cosa includere nel post) ---",
+        "",
+        f"Periodo: ultimi {days} giorni",
+        f"Domande ricevute: {total}",
+        f"Utenti unici (IP distinti): {unique_ips}",
+        f"Paesi: {n_countries} ({country_list})" if n_countries else "Paesi: dati non disponibili",
+        f"Domande sulla normativa (RAG): {rag_count} ({_pct(rag_count, total)}%)",
+        f"Domande su analisi dati: {agent_count} ({_pct(agent_count, total)}%)",
+        f"Tasso di risposte efficaci: {100 - unanswered_pct:.1f}%",
+    ]
+
+    if data["avg_response_time_ms"] is not None:
+        lines.append(f"Tempo medio di risposta: {int(data['avg_response_time_ms'])} ms")
+
+    if top_queries:
+        lines += ["", "Top 5 domande piu' frequenti:"]
+        for i, (q, c) in enumerate(top_queries, 1):
+            q_short = q[:60] + "..." if len(q) > 60 else q
+            lines.append(f"  {i}. \"{q_short}\" ({c}x)")
+
+    lines += [
+        "",
+        "--- BOZZA POST (da personalizzare) ---",
+        "",
+        f"Nelle prime {days // 7} settimane dal lancio, il Pay Transparency Tool ha ricevuto "
+        f"{total} domande da {unique_ips} professionisti HR"
+        + (f" provenienti da {n_countries} paesi." if n_countries > 1 else "."),
+        "",
+        "Le domande piu' frequenti riguardano:"
+        if top_queries else "",
+    ]
+
+    if top_queries:
+        # Raggruppa in temi
+        lines.append("- Obblighi di reporting e scadenze")
+        lines.append("- Calcolo e interpretazione del gender pay gap")
+        lines.append("- Sanzioni e compliance")
+        lines.append("(personalizza in base ai dati reali)")
+
+    lines += [
+        "",
+        f"Il {100 - unanswered_pct:.0f}% delle domande ha ricevuto una risposta precisa, "
+        "citando articoli specifici della Direttiva EU 2023/970.",
+        "",
+        "Il tool e' completamente gratuito e open source.",
+        "",
+        "=" * 50,
+    ]
+
+    return "\n".join(lines)
+
+
 def _pct(value: int, total: int) -> str:
     """Calcola percentuale arrotondata a 1 decimale."""
     if total == 0:
@@ -266,9 +381,17 @@ def main() -> None:
         metavar="PATH",
         help="Percorso del database SQLite (default: ./data/analytics.db)",
     )
+    parser.add_argument(
+        "--linkedin",
+        action="store_true",
+        help="Genera snippet KPI per post LinkedIn invece del report completo",
+    )
     args = parser.parse_args()
 
-    report = generate_report(days=args.days, db_path=args.db)
+    if args.linkedin:
+        report = generate_linkedin_snippet(days=args.days, db_path=args.db)
+    else:
+        report = generate_report(days=args.days, db_path=args.db)
 
     if args.output:
         output_path = Path(args.output)

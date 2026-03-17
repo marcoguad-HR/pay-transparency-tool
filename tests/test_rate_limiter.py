@@ -4,7 +4,43 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.utils.rate_limiter import invoke_with_retry, RateLimitError
+from src.utils.rate_limiter import invoke_with_retry, RateLimitError, _parse_retry_after
+
+
+# ===========================================================================
+# _parse_retry_after
+# ===========================================================================
+
+class TestParseRetryAfter:
+    def test_parsa_secondi_interi(self):
+        assert _parse_retry_after("please try again in 30s") == pytest.approx(31.0)
+
+    def test_parsa_secondi_decimali(self):
+        assert _parse_retry_after("Please try again in 10.47s. Visit ...") == pytest.approx(11.47)
+
+    def test_case_insensitive(self):
+        assert _parse_retry_after("PLEASE TRY AGAIN IN 5S") == pytest.approx(6.0)
+
+    def test_aggiunge_margine_di_sicurezza(self):
+        assert _parse_retry_after("try again in 20s") == pytest.approx(21.0)
+
+    def test_nessuna_indicazione_ritorna_none(self):
+        assert _parse_retry_after("HTTP 429 Too Many Requests") is None
+
+    def test_stringa_vuota_ritorna_none(self):
+        assert _parse_retry_after("") is None
+
+    @patch("src.utils.rate_limiter.time.sleep")
+    def test_usa_groq_retry_after_invece_del_backoff(self, mock_sleep):
+        """Se Groq indica il retry time, usa quello invece del backoff fisso."""
+        client = MagicMock()
+        client.invoke.side_effect = [
+            Exception("rate limit exceeded. Please try again in 15.5s. Visit groq.com"),
+            MagicMock(text="risposta ok"),
+        ]
+        result = invoke_with_retry(client, "domanda")
+        assert result.text == "risposta ok"
+        mock_sleep.assert_called_once_with(pytest.approx(16.5))  # 15.5 + 1.0 margine
 
 
 class TestInvokeWithRetry:
