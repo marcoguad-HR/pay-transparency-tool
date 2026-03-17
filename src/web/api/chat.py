@@ -46,11 +46,31 @@ _DATA_KEYWORDS = {
     "dati retributiv", "pay gap", "gender gap",
 }
 
+# Keyword che indicano una query sulla normativa EU (direttiva, articoli, compliance).
+# Se presenti insieme a _DATA_KEYWORDS, la query e' "ibrida" e richiede l'agent.
+_NORMATIVE_KEYWORDS = {
+    "direttiva", "articolo", "art.", "normativa",
+    "obbligh", "scadenz", "trasposizione", "sanzioni",
+    "conforme", "compliance", "legge", "decreto",
+}
+
 
 def _needs_agent(text: str) -> bool:
     """True se la query richiede analisi dati (agent), False per normativa (RAG diretto)."""
     text_lower = text.lower()
     return any(kw in text_lower for kw in _DATA_KEYWORDS)
+
+
+def _is_pure_data_query(text: str) -> bool:
+    """True se la query e' pura analisi dati senza componente normativa.
+
+    Queste query vengono gestite con un report template-based (zero LLM calls).
+    Query ibride (dati + normativa) passano dall'agent.
+    """
+    text_lower = text.lower()
+    has_data = any(kw in text_lower for kw in _DATA_KEYWORDS)
+    has_normative = any(kw in text_lower for kw in _NORMATIVE_KEYWORDS)
+    return has_data and not has_normative
 
 
 # ===========================================================================
@@ -188,14 +208,35 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
         )
         return HTMLResponse(content=user_bubble_html + assistant_html)
 
-    # Fast-path: query sulla normativa → RAG diretto (1 LLM call).
-    # Agent path: query sui dati retributivi → agent completo (3 LLM calls).
+    # Routing a 3 vie:
+    # 1. Template path: query pure sui dati → report markdown (0 LLM calls, ~50ms)
+    # 2. Agent path: query ibride (dati + normativa) → agent completo (3 LLM calls)
+    # 3. RAG fast-path: query sulla normativa → RAG diretto (1 LLM call)
     # Timeout server 90s < timeout client HTMX 120s.
-    use_agent = _needs_agent(text)
-    logger.info(f"Routing: {'Agent path' if use_agent else 'Fast-path RAG'}")
+    is_pure_data = _is_pure_data_query(text)
+    use_agent = _needs_agent(text) and not is_pure_data
+
+    if is_pure_data:
+        route_label = "Template path (zero LLM)"
+    elif use_agent:
+        route_label = "Agent path"
+    else:
+        route_label = "Fast-path RAG"
+    logger.info(f"Routing: {route_label}")
 
     try:
-        if use_agent:
+        if is_pure_data:
+            from src.analysis.data_loader import PayDataLoader
+            from src.analysis.gap_calculator import GapCalculator
+            from src.analysis.template_report import generate_markdown_report
+
+            loader = PayDataLoader()
+            load_result = loader.load("data/demo/demo_employees.csv")
+            calculator = GapCalculator(load_result.df)
+            compliance_result = calculator.full_analysis()
+            answer = generate_markdown_report(compliance_result, load_result)
+
+        elif use_agent:
             from src.agent.router import PayTransparencyRouter
             agent_router = PayTransparencyRouter()
             answer = await asyncio.wait_for(
@@ -225,7 +266,7 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             response_time_ms=int((time.monotonic() - start_time) * 1000),
             ip_address=client_ip,
             user_agent=user_agent,
-            tool_used="agent" if use_agent else "rag",
+            tool_used="template" if is_pure_data else ("agent" if use_agent else "rag"),
         )
         return HTMLResponse(content=user_bubble_html + assistant_html)
 
@@ -245,7 +286,7 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             response_time_ms=int((time.monotonic() - start_time) * 1000),
             ip_address=client_ip,
             user_agent=user_agent,
-            tool_used="agent" if use_agent else "rag",
+            tool_used="template" if is_pure_data else ("agent" if use_agent else "rag"),
             error="timeout_90s",
         )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
@@ -261,7 +302,7 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             response_time_ms=int((time.monotonic() - start_time) * 1000),
             ip_address=client_ip,
             user_agent=user_agent,
-            tool_used="agent" if use_agent else "rag",
+            tool_used="template" if is_pure_data else ("agent" if use_agent else "rag"),
             error=f"groq_rate_limit: {e}",
         )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
@@ -294,7 +335,7 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             response_time_ms=int((time.monotonic() - start_time) * 1000),
             ip_address=client_ip,
             user_agent=user_agent,
-            tool_used="agent" if use_agent else "rag",
+            tool_used="template" if is_pure_data else ("agent" if use_agent else "rag"),
             error=f"{type(e).__name__}: {str(e)[:200]}",
         )
         return HTMLResponse(content=user_bubble_html + error_html, status_code=200)
