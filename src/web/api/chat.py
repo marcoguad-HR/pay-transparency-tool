@@ -38,6 +38,49 @@ router = APIRouter()
 # Lock per inizializzazione thread-safe del PayTransparencyRouter
 _router_lock = threading.Lock()
 
+# Keyword che indicano una richiesta di aiuto sull'uso del tool (onboarding).
+# Queste query ricevono una risposta fissa (0 LLM calls) con istruzioni pratiche.
+_HELP_KEYWORDS = {
+    "come caricare", "come carico", "dove carico", "come si carica",
+    "come si usa", "come funziona", "come uso", "come utilizzo",
+    "caricare i dati", "caricare il file", "caricare un file",
+    "caricare il csv", "caricare un csv",
+    "in questo tool", "in questo sito", "su questo sito",
+    "tool locale", "tool offline", "analisi locale",
+    "dove trovo", "dove posso", "come faccio",
+    "istruzioni", "guida", "tutorial", "aiuto",
+    "upload", "caricamento",
+}
+
+_HELP_RESPONSE = """## Come usare il tool di analisi retributiva
+
+Hai **due opzioni** per analizzare il gender pay gap della tua azienda:
+
+### Opzione 1 — Analisi online (su questo sito)
+1. Clicca sulla tab **"Analisi Dati"** in alto
+2. Prepara un file CSV o Excel con almeno le colonne **gender** (M/F) e **base_salary** (lordo annuo)
+3. Trascina il file nell'area di upload o clicca per selezionarlo
+4. Il report appare in pochi secondi
+
+### Opzione 2 — Analisi offline (nel tuo computer)
+1. Clicca su **"Analisi nel tuo computer"** nella tab Analisi Dati per scaricare il tool locale
+2. Apri il file HTML scaricato nel tuo browser
+3. Carica il CSV — **nessun dato lascia il tuo computer**
+
+### Come preparare il file
+- **Colonne obbligatorie**: `gender` (M/F) e `base_salary` (numero, es. 45000)
+- **Colonne consigliate**: `department` e `level` per l'analisi per categoria
+- **Colonna opzionale**: `bonus` per il gap sulla retribuzione variabile
+- Puoi scaricare un **template Excel** precompilato dalla tab Analisi Dati
+
+### Formati supportati
+- CSV (separatore virgola o punto e virgola)
+- Excel (.xlsx, .xls)
+- I dati individuali **non vengono mai inviati a servizi esterni**: l'analisi sul sito calcola solo aggregati, il tool locale funziona interamente nel browser.
+
+📌 Hai domande sulla **Direttiva EU 2023/970**? Chiedimele qui — sono il chatbot normativo!"""
+
+
 # Keyword che indicano una query sui dati retributivi (richiede l'agent completo).
 # Se nessuna keyword matcha, la query viene gestita dal RAG diretto (1 LLM call).
 _DATA_KEYWORDS = {
@@ -59,6 +102,16 @@ def _needs_agent(text: str) -> bool:
     """True se la query richiede analisi dati (agent), False per normativa (RAG diretto)."""
     text_lower = text.lower()
     return any(kw in text_lower for kw in _DATA_KEYWORDS)
+
+
+def _is_help_query(text: str) -> bool:
+    """True se la query chiede come usare il tool (onboarding/help).
+
+    Queste query ricevono una risposta fissa con istruzioni pratiche (0 LLM calls).
+    Ha priorità su tutti gli altri path di routing.
+    """
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in _HELP_KEYWORDS)
 
 
 def _is_pure_data_query(text: str) -> bool:
@@ -183,6 +236,24 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
         "partials/chat_message.html",
         {"request": request, "role": "user", "text": text, "timestamp": timestamp},
     ).body.decode()
+
+    # --- Help/onboarding path (zero LLM, risposta fissa) ---
+    if _is_help_query(text):
+        answer = _HELP_RESPONSE
+        assistant_html = templates.TemplateResponse(
+            "partials/chat_message.html",
+            {"request": request, "role": "assistant", "text": answer, "timestamp": timestamp},
+        ).body.decode()
+        logger.info("Chat response: help/onboarding (0 LLM calls)")
+        get_analytics().log_query(
+            query_text=text,
+            response_text=answer,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="help",
+        )
+        return HTMLResponse(content=user_bubble_html + assistant_html)
 
     # --- Check cache ---
     cache = get_cache()
