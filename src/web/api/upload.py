@@ -10,11 +10,13 @@ Solo file CSV e Excel (.csv, .xlsx, .xls) sono accettati.
 
 import os
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, File, Request, UploadFile
 from fastapi.responses import HTMLResponse
 
+from src.utils.analytics import get_analytics
 from src.utils.logger import get_logger
 
 logger = get_logger("web.api.upload")
@@ -42,12 +44,27 @@ def upload_file(request: Request, file: UploadFile = File(...)):
     """
     templates = request.app.state.templates
 
+    # --- Setup tracking ---
+    start_time = time.monotonic()
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+
     # --- Validazione estensione ---
     filename = file.filename or "unknown"
     suffix = Path(filename).suffix.lower()
 
     if suffix not in ALLOWED_EXTENSIONS:
         logger.warning(f"Upload rifiutato: estensione '{suffix}' non supportata ({filename})")
+        get_analytics().log_query(
+            query_text=f"[UPLOAD] {filename}",
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="upload",
+            error=f"estensione_non_supportata: {suffix}",
+        )
         error_html = templates.TemplateResponse(
             "partials/upload_error.html",
             {
@@ -108,6 +125,20 @@ def upload_file(request: Request, file: UploadFile = File(...)):
             f"compliant={compliance_result.is_compliant}"
         )
 
+        # --- Analytics: upload riuscito ---
+        get_analytics().log_query(
+            query_text=f"[UPLOAD] {filename}",
+            response_text=(
+                f"dipendenti={load_result.n_employees}, "
+                f"compliant={compliance_result.is_compliant}, "
+                f"gap_medio={compliance_result.overall_mean_gap.gap_pct:.1f}%"
+            ),
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="upload",
+        )
+
         # --- Renderizza il risultato HTML ---
         result_html = templates.TemplateResponse(
             "partials/upload_result.html",
@@ -123,6 +154,14 @@ def upload_file(request: Request, file: UploadFile = File(...)):
 
     except (DataLoadError, DataValidationError) as e:
         logger.warning(f"Errore dati nel file '{filename}': {e}")
+        get_analytics().log_query(
+            query_text=f"[UPLOAD] {filename}",
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="upload",
+            error=f"dati_non_validi: {str(e)[:200]}",
+        )
         error_html = templates.TemplateResponse(
             "partials/upload_error.html",
             {"request": request, "error": str(e)},
@@ -131,6 +170,14 @@ def upload_file(request: Request, file: UploadFile = File(...)):
 
     except Exception as e:
         logger.error(f"Errore durante upload/analisi di '{filename}': {e}", exc_info=True)
+        get_analytics().log_query(
+            query_text=f"[UPLOAD] {filename}",
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="upload",
+            error=f"errore_interno: {type(e).__name__}: {str(e)[:200]}",
+        )
         error_html = templates.TemplateResponse(
             "partials/upload_error.html",
             {

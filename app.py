@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.web.api import chat, upload, health, cache_admin
+from src.web.api import chat, upload, health, cache_admin, downloads
 
 # =============================================================================
 # CONFIGURAZIONE APP
@@ -126,6 +126,7 @@ app.include_router(chat.router)
 app.include_router(upload.router)
 app.include_router(health.router)
 app.include_router(cache_admin.router)
+app.include_router(downloads.router)
 
 
 # =============================================================================
