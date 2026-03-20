@@ -108,7 +108,7 @@
                     Come posso aiutarti?
                 </h1>
                 <p class="text-gray-500 text-center text-sm px-4 mb-8">
-                    Chiedi informazioni su normative, gap retributivi e<br class="hidden sm:inline"> trasparenza salariale.
+                    Normativa EU, obblighi di reporting e<br class="hidden sm:inline"> analisi gender pay gap della tua azienda.
                 </p>
 
                 <!-- Suggestion chips -->
@@ -128,6 +128,31 @@
                     <button onclick="sendChip('Quali sanzioni prevede la Direttiva EU per le aziende non conformi?')"
                             class="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 transition-colors shadow-sm cursor-pointer">
                         Sanzioni previste
+                    </button>
+                    <button onclick="switchTab('analisi')"
+                            class="px-4 py-2 rounded-full border border-violet-200 bg-violet-50 text-sm text-violet-700 hover:bg-violet-100 hover:border-violet-300 active:bg-violet-200 transition-colors shadow-sm cursor-pointer">
+                        Analizza i tuoi dati retributivi
+                    </button>
+                </div>
+
+                <!-- Discovery banner: analisi dati -->
+                <div class="mt-6 max-w-md px-4 pointer-events-auto">
+                    <button onclick="switchTab('analisi')"
+                            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-50 to-emerald-50 border border-violet-100/60 hover:border-violet-200 transition-all cursor-pointer text-left group">
+                        <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-white shadow-sm flex items-center justify-center border border-violet-100/50">
+                            <svg class="w-[18px] h-[18px] text-violet-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm font-medium text-gray-800 group-hover:text-violet-700 transition-colors">Hai dati retributivi? Analizzali qui</span>
+                            <span class="block text-xs text-gray-400 mt-0.5">Carica CSV/Excel sul server o analizza offline con il tool locale</span>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-300 group-hover:text-violet-400 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
                     </button>
                 </div>
 
