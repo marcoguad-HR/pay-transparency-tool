@@ -10,6 +10,14 @@ Strumento gratuito e open source per la **compliance alla Direttiva Europea 2023
 
 ---
 
+## Screenshot
+
+| Assistente AI | Analisi Dati |
+|:---:|:---:|
+| ![Assistente AI](docs/screenshots/assistente.png) | ![Analisi Dati](docs/screenshots/analisi-dati.png) |
+
+---
+
 ## Cosa fa
 
 Il tool offre tre funzionalità integrate:
