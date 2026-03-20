@@ -3,6 +3,8 @@
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109%2B-009688.svg)](https://fastapi.tiangolo.com)
+[![datapizza-ai](https://img.shields.io/pypi/v/datapizza-ai.svg?label=datapizza-ai&color=ff6b35)](https://pypi.org/project/datapizza-ai/)
+[![Groq](https://img.shields.io/badge/LLM-Groq%20Llama%203.3-f55036.svg)](https://groq.com)
 
 Strumento gratuito e open source per la **compliance alla Direttiva Europea 2023/970** sulla trasparenza retributiva. Pensato per HR Manager, consulenti del lavoro e aziende italiane che devono analizzare il gender pay gap e comprendere i propri obblighi normativi.
 
@@ -110,6 +112,7 @@ pay-transparency-tool/
 | Componente | Tecnologia |
 |------------|-----------|
 | Backend | FastAPI + Jinja2 + HTMX |
+| AI Framework | [datapizza-ai](https://github.com/datapizza-labs/datapizza-ai) — agent, RAG pipeline, document parsing |
 | LLM | Groq API (Llama 3.3-70b-versatile) |
 | Embeddings | FastEmbed (MiniLM-L6-v2, 384 dim) |
 | Vector DB | Qdrant (locale, in-process) |
