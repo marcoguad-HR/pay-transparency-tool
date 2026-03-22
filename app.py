@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.web.api import chat, upload, health, cache_admin, downloads
+from src.web.api import chat, upload, health, cache_admin, downloads, compare, suggest_scores
 
 # =============================================================================
 # CONFIGURAZIONE APP
@@ -109,6 +109,9 @@ app.add_middleware(NoCacheHTMLMiddleware)
 # verifica l'esistenza solo al primo render.
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
+# Aggiungi zip() ai globals Jinja2 (usato in equal_value_result.html)
+templates.env.globals["zip"] = zip
+
 # Salva templates in app.state cosi' tutti gli endpoint possono accedervi
 app.state.templates = templates
 
@@ -127,6 +130,8 @@ app.include_router(upload.router)
 app.include_router(health.router)
 app.include_router(cache_admin.router)
 app.include_router(downloads.router)
+app.include_router(compare.router)
+app.include_router(suggest_scores.router)
 
 
 # =============================================================================

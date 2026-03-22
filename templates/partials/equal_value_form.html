@@ -1,0 +1,706 @@
+<!-- equal_value_form.html — Form SERW per comparazione pari valore -->
+
+<style>
+    /* Slider styling */
+    input[type="range"].serw-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #E5E7EB;
+        outline: none;
+        transition: background 150ms;
+    }
+    input[type="range"].serw-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #0891B2;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        transition: transform 150ms, box-shadow 150ms;
+    }
+    input[type="range"].serw-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 2px 6px rgba(8,145,178,0.35);
+    }
+    input[type="range"].serw-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #0891B2;
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    input[type="range"].serw-slider:focus-visible {
+        outline: 2px solid #22D3EE;
+        outline-offset: 2px;
+    }
+    /* Dot scale indicators */
+    .scale-dots {
+        display: flex;
+        justify-content: space-between;
+        padding: 0 8px;
+        margin-top: 2px;
+    }
+    .scale-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #D1D5DB;
+        transition: background 150ms;
+    }
+    .scale-dots span.active {
+        background: #0891B2;
+    }
+    /* Suggest button spinner */
+    .suggest-spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .suggest-loading .suggest-spinner { display: inline-block; }
+    .suggest-loading .suggest-label { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+        input[type="range"].serw-slider::-webkit-slider-thumb,
+        .scale-dots span,
+        .suggest-spinner {
+            transition: none;
+            animation: none;
+        }
+    }
+</style>
+
+<div class="space-y-6">
+
+    <!-- Header -->
+    <div class="text-center">
+        <h2 class="text-xl font-semibold text-cyan-900">Comparatore Pari Valore</h2>
+        <p class="text-sm text-gray-500 mt-1">Art. 4, Direttiva EU 2023/970</p>
+    </div>
+
+    <form id="equal-value-form"
+          hx-post="/api/compare"
+          hx-target="#equal-value-result"
+          hx-swap="innerHTML"
+          hx-indicator="#ev-thinking"
+          hx-request='{"timeout": 120000}'>
+
+        <!-- Two-column role inputs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+            <!-- RUOLO A -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-xs font-bold flex-shrink-0">A</span>
+                    <h3 class="text-sm font-semibold text-cyan-900">Ruolo A</h3>
+                </div>
+
+                <div>
+                    <label for="role_a_name" class="block text-xs font-medium text-gray-600 mb-1">Nome del ruolo</label>
+                    <input type="text" id="role_a_name" name="role_a_name" required
+                           placeholder="es. Responsabile Marketing"
+                           class="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label for="role_a_jd" class="block text-xs font-medium text-gray-600 mb-1">Job Description <span class="text-gray-400">(opzionale)</span></label>
+                    <textarea id="role_a_jd" rows="3"
+                              placeholder="Descrivi le attivita principali, le competenze richieste, le responsabilita..."
+                              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all resize-none"></textarea>
+                </div>
+
+                <button type="button" id="suggest-btn-a"
+                        onclick="suggestScores('a')"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white text-sm font-medium rounded-full transition-all duration-150 cursor-pointer min-h-[44px]">
+                    <svg class="w-4 h-4 suggest-label" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"></path>
+                        <line x1="10" y1="16" x2="14" y2="16"></line>
+                        <line x1="10" y1="19" x2="14" y2="19"></line>
+                        <line x1="11" y1="22" x2="13" y2="22"></line>
+                    </svg>
+                    <span class="suggest-label">Suggerisci punteggi con AI</span>
+                    <div class="suggest-spinner" aria-hidden="true"></div>
+                </button>
+
+                <!-- SERW Sliders Ruolo A -->
+                <div class="space-y-5" id="sliders-a">
+
+                    <!-- SKILLS -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                <path d="M6 12v5c3 3 10 3 12 0v-5"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Competenze (Skills)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_S1" class="text-xs text-gray-600">S1. Istruzione/qualifiche</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_S1">3</span>
+                                </div>
+                                <input type="range" id="role_a_S1" name="role_a_S1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_S2" class="text-xs text-gray-600">S2. Esperienza richiesta</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_S2">3</span>
+                                </div>
+                                <input type="range" id="role_a_S2" name="role_a_S2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_S3" class="text-xs text-gray-600">S3. Conoscenze tecniche</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_S3">3</span>
+                                </div>
+                                <input type="range" id="role_a_S3" name="role_a_S3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_S4" class="text-xs text-gray-600">S4. Capacita interpersonali</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_S4">3</span>
+                                </div>
+                                <input type="range" id="role_a_S4" name="role_a_S4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EFFORT -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Impegno (Effort)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_E1" class="text-xs text-gray-600">E1. Impegno fisico</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_E1">3</span>
+                                </div>
+                                <input type="range" id="role_a_E1" name="role_a_E1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_E2" class="text-xs text-gray-600">E2. Concentrazione mentale</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_E2">3</span>
+                                </div>
+                                <input type="range" id="role_a_E2" name="role_a_E2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_E3" class="text-xs text-gray-600">E3. Impegno emotivo</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_E3">3</span>
+                                </div>
+                                <input type="range" id="role_a_E3" name="role_a_E3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_E4" class="text-xs text-gray-600">E4. Multi-tasking / pressione</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_E4">3</span>
+                                </div>
+                                <input type="range" id="role_a_E4" name="role_a_E4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESPONSIBILITY -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Responsabilita (Responsibility)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_R1" class="text-xs text-gray-600">R1. Supervisione persone</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_R1">3</span>
+                                </div>
+                                <input type="range" id="role_a_R1" name="role_a_R1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_R2" class="text-xs text-gray-600">R2. Impatto finanziario / budget</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_R2">3</span>
+                                </div>
+                                <input type="range" id="role_a_R2" name="role_a_R2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_R3" class="text-xs text-gray-600">R3. Benessere altrui</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_R3">3</span>
+                                </div>
+                                <input type="range" id="role_a_R3" name="role_a_R3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_R4" class="text-xs text-gray-600">R4. Dati sensibili / riservatezza</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_R4">3</span>
+                                </div>
+                                <input type="range" id="role_a_R4" name="role_a_R4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WORKING CONDITIONS -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                                <path d="M9 22v-4h6v4"></path>
+                                <line x1="8" y1="6" x2="16" y2="6"></line>
+                                <line x1="8" y1="10" x2="16" y2="10"></line>
+                                <line x1="8" y1="14" x2="12" y2="14"></line>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Condizioni (Working Conditions)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_W1" class="text-xs text-gray-600">W1. Ambiente fisico / rischi</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_W1">3</span>
+                                </div>
+                                <input type="range" id="role_a_W1" name="role_a_W1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_W2" class="text-xs text-gray-600">W2. Stress psicologico</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_W2">3</span>
+                                </div>
+                                <input type="range" id="role_a_W2" name="role_a_W2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_W3" class="text-xs text-gray-600">W3. Orari disagiati / turni</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_W3">3</span>
+                                </div>
+                                <input type="range" id="role_a_W3" name="role_a_W3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_a_W4" class="text-xs text-gray-600">W4. Trasferte / mobilita</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_a_W4">3</span>
+                                </div>
+                                <input type="range" id="role_a_W4" name="role_a_W4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /sliders-a -->
+            </div><!-- /Ruolo A -->
+
+            <!-- RUOLO B -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 space-y-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold flex-shrink-0">B</span>
+                    <h3 class="text-sm font-semibold text-cyan-900">Ruolo B</h3>
+                </div>
+
+                <div>
+                    <label for="role_b_name" class="block text-xs font-medium text-gray-600 mb-1">Nome del ruolo</label>
+                    <input type="text" id="role_b_name" name="role_b_name" required
+                           placeholder="es. Responsabile Vendite"
+                           class="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label for="role_b_jd" class="block text-xs font-medium text-gray-600 mb-1">Job Description <span class="text-gray-400">(opzionale)</span></label>
+                    <textarea id="role_b_jd" rows="3"
+                              placeholder="Descrivi le attivita principali, le competenze richieste, le responsabilita..."
+                              class="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all resize-none"></textarea>
+                </div>
+
+                <button type="button" id="suggest-btn-b"
+                        onclick="suggestScores('b')"
+                        class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white text-sm font-medium rounded-full transition-all duration-150 cursor-pointer min-h-[44px]">
+                    <svg class="w-4 h-4 suggest-label" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 2a4 4 0 0 0-4 4c0 2 2 3 2 6h4c0-3 2-4 2-6a4 4 0 0 0-4-4z"></path>
+                        <line x1="10" y1="16" x2="14" y2="16"></line>
+                        <line x1="10" y1="19" x2="14" y2="19"></line>
+                        <line x1="11" y1="22" x2="13" y2="22"></line>
+                    </svg>
+                    <span class="suggest-label">Suggerisci punteggi con AI</span>
+                    <div class="suggest-spinner" aria-hidden="true"></div>
+                </button>
+
+                <!-- SERW Sliders Ruolo B -->
+                <div class="space-y-5" id="sliders-b">
+
+                    <!-- SKILLS -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                                <path d="M6 12v5c3 3 10 3 12 0v-5"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Competenze (Skills)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_S1" class="text-xs text-gray-600">S1. Istruzione/qualifiche</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_S1">3</span>
+                                </div>
+                                <input type="range" id="role_b_S1" name="role_b_S1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_S2" class="text-xs text-gray-600">S2. Esperienza richiesta</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_S2">3</span>
+                                </div>
+                                <input type="range" id="role_b_S2" name="role_b_S2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_S3" class="text-xs text-gray-600">S3. Conoscenze tecniche</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_S3">3</span>
+                                </div>
+                                <input type="range" id="role_b_S3" name="role_b_S3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_S4" class="text-xs text-gray-600">S4. Capacita interpersonali</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_S4">3</span>
+                                </div>
+                                <input type="range" id="role_b_S4" name="role_b_S4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EFFORT -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Impegno (Effort)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_E1" class="text-xs text-gray-600">E1. Impegno fisico</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_E1">3</span>
+                                </div>
+                                <input type="range" id="role_b_E1" name="role_b_E1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_E2" class="text-xs text-gray-600">E2. Concentrazione mentale</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_E2">3</span>
+                                </div>
+                                <input type="range" id="role_b_E2" name="role_b_E2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_E3" class="text-xs text-gray-600">E3. Impegno emotivo</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_E3">3</span>
+                                </div>
+                                <input type="range" id="role_b_E3" name="role_b_E3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_E4" class="text-xs text-gray-600">E4. Multi-tasking / pressione</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_E4">3</span>
+                                </div>
+                                <input type="range" id="role_b_E4" name="role_b_E4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RESPONSIBILITY -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Responsabilita (Responsibility)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_R1" class="text-xs text-gray-600">R1. Supervisione persone</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_R1">3</span>
+                                </div>
+                                <input type="range" id="role_b_R1" name="role_b_R1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_R2" class="text-xs text-gray-600">R2. Impatto finanziario / budget</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_R2">3</span>
+                                </div>
+                                <input type="range" id="role_b_R2" name="role_b_R2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_R3" class="text-xs text-gray-600">R3. Benessere altrui</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_R3">3</span>
+                                </div>
+                                <input type="range" id="role_b_R3" name="role_b_R3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_R4" class="text-xs text-gray-600">R4. Dati sensibili / riservatezza</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_R4">3</span>
+                                </div>
+                                <input type="range" id="role_b_R4" name="role_b_R4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WORKING CONDITIONS -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <svg class="w-4 h-4 text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                                <path d="M9 22v-4h6v4"></path>
+                                <line x1="8" y1="6" x2="16" y2="6"></line>
+                                <line x1="8" y1="10" x2="16" y2="10"></line>
+                                <line x1="8" y1="14" x2="12" y2="14"></line>
+                            </svg>
+                            <span class="text-xs font-semibold text-cyan-800 uppercase tracking-wide">Condizioni (Working Conditions)</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_W1" class="text-xs text-gray-600">W1. Ambiente fisico / rischi</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_W1">3</span>
+                                </div>
+                                <input type="range" id="role_b_W1" name="role_b_W1" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_W2" class="text-xs text-gray-600">W2. Stress psicologico</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_W2">3</span>
+                                </div>
+                                <input type="range" id="role_b_W2" name="role_b_W2" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_W3" class="text-xs text-gray-600">W3. Orari disagiati / turni</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_W3">3</span>
+                                </div>
+                                <input type="range" id="role_b_W3" name="role_b_W3" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label for="role_b_W4" class="text-xs text-gray-600">W4. Trasferte / mobilita</label>
+                                    <span class="text-xs font-semibold text-cyan-700 w-5 text-right" id="val_b_W4">3</span>
+                                </div>
+                                <input type="range" id="role_b_W4" name="role_b_W4" min="1" max="5" value="3"
+                                       class="serw-slider" oninput="updateSliderValue(this)">
+                                <div class="scale-dots" aria-hidden="true"><span class="active"></span><span class="active"></span><span class="active"></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /sliders-b -->
+            </div><!-- /Ruolo B -->
+
+        </div><!-- /grid -->
+
+        <!-- Submit button -->
+        <div class="flex justify-center mt-2 mb-4">
+            <button type="submit"
+                    class="flex items-center gap-2 px-8 py-3 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white text-sm font-semibold rounded-full transition-all duration-150 cursor-pointer min-h-[48px] shadow-sm hover:shadow-md">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                Confronta
+            </button>
+        </div>
+
+        <!-- Thinking indicator for comparatore -->
+        <div id="ev-thinking"
+             class="htmx-indicator flex justify-center py-4"
+             role="status" aria-live="polite">
+            <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
+                <span class="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                <span class="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                <span class="text-xs text-gray-400 ml-1">Confronto in corso...</span>
+            </div>
+        </div>
+
+    </form>
+
+    <!-- Disclaimer legale -->
+    <div class="bg-cyan-50 border border-cyan-200 rounded-2xl px-4 py-3 mt-2">
+        <div class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-cyan-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <p class="text-xs text-cyan-800 leading-relaxed">
+                <strong>Nota importante:</strong> Questo strumento fornisce un'analisi orientativa basata sui criteri dell'Art. 4 della Direttiva EU 2023/970. Non sostituisce una valutazione professionale del lavoro (job evaluation) ne costituisce parere legale. Per una classificazione formale dei ruoli, si consiglia di rivolgersi a consulenti specializzati in compensation &amp; benefits o a studi legali giuslavoristici.
+            </p>
+        </div>
+    </div>
+
+</div><!-- /space-y-6 -->
+
+<script>
+    // Aggiorna il valore visualizzato e i dot indicators
+    function updateSliderValue(input) {
+        var val = parseInt(input.value);
+        var id = input.id; // e.g. role_a_S1
+        var prefix = id.replace('role_', 'val_'); // val_a_S1
+        var display = document.getElementById(prefix);
+        if (display) display.textContent = val;
+
+        // Aggiorna dot indicators
+        var dotsContainer = input.parentElement.querySelector('.scale-dots');
+        if (dotsContainer) {
+            var dots = dotsContainer.querySelectorAll('span');
+            dots.forEach(function(dot, i) {
+                if (i < val) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+    }
+
+    // Suggerisci punteggi con AI
+    function suggestScores(role) {
+        var jdField = document.getElementById('role_' + role + '_jd');
+        var nameField = document.getElementById('role_' + role + '_name');
+        var btn = document.getElementById('suggest-btn-' + role);
+
+        var jd = jdField ? jdField.value.trim() : '';
+        var name = nameField ? nameField.value.trim() : '';
+
+        if (!jd && !name) {
+            // Inserisci almeno il nome o la JD
+            nameField.focus();
+            nameField.classList.add('border-amber-400');
+            setTimeout(function() { nameField.classList.remove('border-amber-400'); }, 2000);
+            return;
+        }
+
+        // Loading state
+        btn.classList.add('suggest-loading');
+        btn.disabled = true;
+
+        var body = new FormData();
+        body.append('role_name', name);
+        body.append('job_description', jd);
+
+        fetch('/api/suggest-scores', {
+            method: 'POST',
+            body: body
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('Errore ' + res.status);
+            return res.json();
+        })
+        .then(function(data) {
+            // data atteso: { S1: 4, S2: 3, ..., W4: 2 }
+            var factors = ['S1','S2','S3','S4','E1','E2','E3','E4','R1','R2','R3','R4','W1','W2','W3','W4'];
+            factors.forEach(function(f) {
+                if (data[f] !== undefined) {
+                    var slider = document.getElementById('role_' + role + '_' + f);
+                    if (slider) {
+                        slider.value = data[f];
+                        updateSliderValue(slider);
+                    }
+                }
+            });
+        })
+        .catch(function(err) {
+            console.error('Errore suggest-scores:', err);
+        })
+        .finally(function() {
+            btn.classList.remove('suggest-loading');
+            btn.disabled = false;
+        });
+    }
+
+    // Init: assicura che tutti i dot indicators siano sincronizzati
+    document.querySelectorAll('.serw-slider').forEach(function(slider) {
+        updateSliderValue(slider);
+    });
+</script>

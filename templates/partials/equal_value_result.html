@@ -1,0 +1,355 @@
+<!-- equal_value_result.html — Risultato comparazione pari valore -->
+
+<!-- Verdetto banner -->
+{% if result.verdict == "equal" %}
+<div class="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6">
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+        <div class="flex-shrink-0 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+            <svg class="w-7 h-7 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+        <div class="flex-1 text-center sm:text-left">
+            <h2 class="text-lg font-bold text-green-800">{{ result.verdict_label }}</h2>
+            <p class="text-sm text-green-700 mt-1">Differenza: <strong>{{ "%.1f"|format(result.difference_pct) }}%</strong></p>
+            <div class="flex flex-wrap gap-4 mt-2 justify-center sm:justify-start">
+                <span class="text-xs text-green-600">{{ result.role_a.name }}: <strong>{{ result.score_a|int }}/80</strong></span>
+                <span class="text-xs text-green-600">{{ result.role_b.name }}: <strong>{{ result.score_b|int }}/80</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% elif result.verdict == "maybe" %}
+<div class="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+        <div class="flex-shrink-0 w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg class="w-7 h-7 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </div>
+        <div class="flex-1 text-center sm:text-left">
+            <h2 class="text-lg font-bold text-amber-800">{{ result.verdict_label }}</h2>
+            <p class="text-sm text-amber-700 mt-1">Differenza: <strong>{{ "%.1f"|format(result.difference_pct) }}%</strong></p>
+            <div class="flex flex-wrap gap-4 mt-2 justify-center sm:justify-start">
+                <span class="text-xs text-amber-600">{{ result.role_a.name }}: <strong>{{ result.score_a|int }}/80</strong></span>
+                <span class="text-xs text-amber-600">{{ result.role_b.name }}: <strong>{{ result.score_b|int }}/80</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6">
+    <div class="flex flex-col sm:flex-row items-center gap-4">
+        <div class="flex-shrink-0 w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+            <svg class="w-7 h-7 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </div>
+        <div class="flex-1 text-center sm:text-left">
+            <h2 class="text-lg font-bold text-red-800">{{ result.verdict_label }}</h2>
+            <p class="text-sm text-red-700 mt-1">Differenza: <strong>{{ "%.1f"|format(result.difference_pct) }}%</strong></p>
+            <div class="flex flex-wrap gap-4 mt-2 justify-center sm:justify-start">
+                <span class="text-xs text-red-600">{{ result.role_a.name }}: <strong>{{ result.score_a|int }}/80</strong></span>
+                <span class="text-xs text-red-600">{{ result.role_b.name }}: <strong>{{ result.score_b|int }}/80</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Radar Chart -->
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+    <h3 class="text-sm font-semibold text-cyan-900 mb-4">Confronto visuale SERW</h3>
+    <div class="max-w-md mx-auto" style="aspect-ratio: 1;">
+        <canvas id="radar-chart"></canvas>
+    </div>
+</div>
+
+<!-- Tabella breakdown per categoria -->
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6 overflow-x-auto">
+    <h3 class="text-sm font-semibold text-cyan-900 mb-4">Dettaglio per categoria</h3>
+    <table class="w-full text-sm" role="table">
+        <thead>
+            <tr class="border-b border-gray-100">
+                <th class="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoria</th>
+                <th class="text-center py-2 px-3 text-xs font-semibold text-cyan-700 uppercase tracking-wide">{{ result.role_a.name }}</th>
+                <th class="text-center py-2 px-3 text-xs font-semibold text-amber-700 uppercase tracking-wide">{{ result.role_b.name }}</th>
+                <th class="text-center py-2 pl-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Diff.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat_a, cat_b in zip(result.category_scores_a, result.category_scores_b) %}
+            {% set diff_val = cat_a.score - cat_b.score %}
+            {% set diff_pct = ((diff_val / cat_b.score * 100) if cat_b.score > 0 else 0)|round(0)|int %}
+            <tr class="border-b border-gray-50">
+                <td class="py-2.5 pr-4 font-medium text-gray-700">{{ cat_a.label }}</td>
+                <td class="py-2.5 px-3 text-center">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700">{{ cat_a.score|int }}/{{ cat_a.max_score|int }}</span>
+                </td>
+                <td class="py-2.5 px-3 text-center">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">{{ cat_b.score|int }}/{{ cat_b.max_score|int }}</span>
+                </td>
+                <td class="py-2.5 pl-3 text-center">
+                    {% if diff_pct|abs > 20 %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-600">{{ "%+d"|format(diff_pct) }}%</span>
+                    {% elif diff_pct|abs > 10 %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600">{{ "%+d"|format(diff_pct) }}%</span>
+                    {% else %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-600">{{ "%+d"|format(diff_pct) }}%</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="border-t border-gray-200">
+                <td class="py-2.5 pr-4 font-semibold text-gray-900">Totale</td>
+                <td class="py-2.5 px-3 text-center">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-800">{{ result.score_a|int }}/80</span>
+                </td>
+                <td class="py-2.5 px-3 text-center">
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">{{ result.score_b|int }}/80</span>
+                </td>
+                <td class="py-2.5 pl-3 text-center">
+                    {% if result.difference_pct > 20 %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">{{ "%.1f"|format(result.difference_pct) }}%</span>
+                    {% elif result.difference_pct > 10 %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">{{ "%.1f"|format(result.difference_pct) }}%</span>
+                    {% else %}
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">{{ "%.1f"|format(result.difference_pct) }}%</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- Gender warnings -->
+{% if result.warnings %}
+<div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+    <div class="flex items-start gap-2 mb-2">
+        <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <h3 class="text-sm font-semibold text-amber-800">Avvisi di gender-neutrality</h3>
+    </div>
+    <ul class="space-y-1.5 ml-7">
+        {% for warning in result.warnings %}
+        <li class="text-xs text-amber-700 leading-relaxed">{{ warning.message }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Riferimenti normativi -->
+<div class="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-6">
+    <h3 class="text-sm font-semibold text-gray-700 mb-2">Riferimenti normativi</h3>
+    <ul class="space-y-1.5">
+        <li class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span class="text-xs text-gray-600">Art. 4(4), Direttiva EU 2023/970 — Criteri per la determinazione del lavoro di pari valore</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span class="text-xs text-gray-600">ILO — Promoting Equity: Gender-neutral Job Evaluation for Equal Pay (2008)</span>
+        </li>
+    </ul>
+</div>
+
+<!-- Bottoni azione -->
+<div class="flex flex-wrap gap-3 justify-center mb-6">
+    <button type="button" onclick="downloadReport()"
+            class="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 text-white text-sm font-medium rounded-full transition-all duration-150 cursor-pointer min-h-[44px] shadow-sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Scarica Report
+    </button>
+    <button type="button" onclick="resetComparator()"
+            class="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-full border border-gray-200 transition-all duration-150 cursor-pointer min-h-[44px]">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+        </svg>
+        Nuovo confronto
+    </button>
+</div>
+
+<!-- Disclaimer -->
+<div class="bg-cyan-50 border border-cyan-200 rounded-2xl px-4 py-3">
+    <div class="flex items-start gap-2">
+        <svg class="w-4 h-4 text-cyan-600 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <p class="text-xs text-cyan-800 leading-relaxed">
+            <strong>Nota importante:</strong> Questo strumento fornisce un'analisi orientativa basata sui criteri dell'Art. 4 della Direttiva EU 2023/970. Non sostituisce una valutazione professionale del lavoro (job evaluation) ne costituisce parere legale.
+        </p>
+    </div>
+</div>
+
+<!-- Chart.js radar chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function() {
+    var ctx = document.getElementById('radar-chart');
+    if (!ctx) return;
+
+    // Dati dalle variabili Jinja2
+    var scoresA = [
+        {% for cs in result.category_scores_a %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+    ];
+    var scoresB = [
+        {% for cs in result.category_scores_b %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+    ];
+
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: ['Competenze', 'Impegno', 'Responsabilita', 'Condizioni'],
+            datasets: [{
+                label: '{{ result.role_a.name|e }}',
+                data: scoresA,
+                borderColor: 'rgba(8, 145, 178, 1)',
+                backgroundColor: 'rgba(8, 145, 178, 0.2)',
+                pointBackgroundColor: 'rgba(8, 145, 178, 1)',
+                pointBorderColor: '#fff',
+                pointRadius: 4,
+                borderWidth: 2
+            }, {
+                label: '{{ result.role_b.name|e }}',
+                data: scoresB,
+                borderColor: 'rgba(245, 158, 11, 1)',
+                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                pointBorderColor: '#fff',
+                pointRadius: 4,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                r: {
+                    min: 0,
+                    max: 20,
+                    ticks: {
+                        stepSize: 5,
+                        font: { size: 11 },
+                        backdropColor: 'transparent'
+                    },
+                    pointLabels: {
+                        font: { size: 12, weight: '600' },
+                        color: '#164E63'
+                    },
+                    grid: {
+                        color: 'rgba(0,0,0,0.06)'
+                    },
+                    angleLines: {
+                        color: 'rgba(0,0,0,0.06)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 16,
+                        font: { size: 12 }
+                    }
+                }
+            },
+            animation: {
+                duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
+            }
+        }
+    });
+})();
+</script>
+
+<!-- Download report + reset scripts -->
+<script>
+    function downloadReport() {
+        var roleA = '{{ result.role_a.name|e }}';
+        var roleB = '{{ result.role_b.name|e }}';
+        var scoreA = {{ result.score_a }};
+        var scoreB = {{ result.score_b }};
+        var diffPct = {{ result.difference_pct }};
+        var verdict = '{{ result.verdict_label|e }}';
+
+        var catLabels = [
+            {% for cs in result.category_scores_a %}'{{ cs.label|e }}'{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
+        var catA = [
+            {% for cs in result.category_scores_a %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
+        var catB = [
+            {% for cs in result.category_scores_b %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
+        var catMax = [
+            {% for cs in result.category_scores_a %}{{ cs.max_score }}{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
+
+        var md = '# Report Comparazione Pari Valore\n\n';
+        md += '**Data:** ' + new Date().toLocaleDateString('it-IT') + '\n\n';
+        md += '## Verdetto\n\n';
+        md += '**' + verdict + '**\n\n';
+        md += '- **' + roleA + '**: ' + Math.round(scoreA) + '/80\n';
+        md += '- **' + roleB + '**: ' + Math.round(scoreB) + '/80\n';
+        md += '- **Differenza**: ' + diffPct.toFixed(1) + '%\n\n';
+        md += '## Dettaglio per categoria\n\n';
+        md += '| Categoria | ' + roleA + ' | ' + roleB + ' |\n';
+        md += '|-----------|' + '-'.repeat(roleA.length + 2) + '|' + '-'.repeat(roleB.length + 2) + '|\n';
+        for (var i = 0; i < catLabels.length; i++) {
+            md += '| ' + catLabels[i] + ' | ' + Math.round(catA[i]) + '/' + Math.round(catMax[i]) + ' | ' + Math.round(catB[i]) + '/' + Math.round(catMax[i]) + ' |\n';
+        }
+
+        {% if result.warnings %}
+        md += '\n## Avvisi gender-neutrality\n\n';
+        {% for w in result.warnings %}
+        md += '- {{ w.message|e }}\n';
+        {% endfor %}
+        {% endif %}
+
+        md += '\n## Riferimenti normativi\n\n';
+        md += '- Art. 4(4), Direttiva EU 2023/970\n';
+        md += '- ILO — Promoting Equity: Gender-neutral Job Evaluation for Equal Pay (2008)\n\n';
+        md += '---\n\n';
+        md += '*Questo strumento fornisce un\'analisi orientativa. Non sostituisce una valutazione professionale del lavoro ne costituisce parere legale.*\n\n';
+        md += '*Generato con PayTransparency Tool — pay-transparency.marcog-ai4hr.cloud*\n';
+
+        var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'report-pari-valore-' + new Date().toISOString().slice(0, 10) + '.md';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function resetComparator() {
+        // Ricarica il form originale via HTMX
+        var container = document.getElementById('equal-value-result');
+        if (container) {
+            htmx.ajax('GET', '/api/compare/form', { target: '#equal-value-result', swap: 'innerHTML' });
+        }
+    }
+</script>

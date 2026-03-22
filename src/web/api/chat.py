@@ -97,6 +97,36 @@ _NORMATIVE_KEYWORDS = {
     "conforme", "compliance", "legge", "decreto",
 }
 
+# Keyword che indicano una query sul pari valore / confronto ruoli.
+# L'utente viene indirizzato al Comparatore con una risposta fissa (0 LLM calls).
+_EQUAL_VALUE_KEYWORDS = {
+    "pari valore", "equal value", "confronta ruoli", "confrontare ruoli",
+    "confronto ruoli", "confronto tra ruoli", "stessa mansione",
+    "lavoro di pari valore", "job evaluation", "valutazione ruoli",
+    "comparare ruoli", "comparazione ruoli", "comparatore",
+    "serw", "skills effort responsibility working",
+}
+
+_EQUAL_VALUE_RESPONSE = """## Confronto di pari valore tra ruoli
+
+Per determinare se due ruoli sono di **"lavoro di pari valore"** ai sensi dell'**Art. 4(4)** della Direttiva EU 2023/970, puoi usare il nostro **Comparatore Pari Valore**.
+
+Il Comparatore valuta i ruoli su **16 criteri oggettivi** raggruppati in 4 categorie (modello SERW):
+- **Competenze** — istruzione, esperienza, conoscenze tecniche, capacita' interpersonali
+- **Impegno** — fisico, mentale, emotivo, multi-tasking
+- **Responsabilita'** — supervisione, impatto finanziario, benessere altrui, dati sensibili
+- **Condizioni di lavoro** — ambiente fisico, stress, orari, trasferte
+
+Puoi descrivere i ruoli a parole e l'AI suggerira' i punteggi, oppure compilarli manualmente.
+
+**Clicca sulla tab "Comparatore" in alto per iniziare.**"""
+
+
+def _is_equal_value_query(text: str) -> bool:
+    """True se la query riguarda il pari valore / confronto ruoli."""
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in _EQUAL_VALUE_KEYWORDS)
+
 
 def _needs_agent(text: str) -> bool:
     """True se la query richiede analisi dati (agent), False per normativa (RAG diretto)."""
@@ -252,6 +282,24 @@ async def chat(request: Request, text: str = Form(..., min_length=1)):
             ip_address=client_ip,
             user_agent=user_agent,
             tool_used="help",
+        )
+        return HTMLResponse(content=user_bubble_html + assistant_html)
+
+    # --- Equal value path (zero LLM, risposta fissa con redirect al Comparatore) ---
+    if _is_equal_value_query(text):
+        answer = _EQUAL_VALUE_RESPONSE
+        assistant_html = templates.TemplateResponse(
+            "partials/chat_message.html",
+            {"request": request, "role": "assistant", "text": answer, "timestamp": timestamp},
+        ).body.decode()
+        logger.info("Chat response: equal_value routing (0 LLM calls)")
+        get_analytics().log_query(
+            query_text=text,
+            response_text=answer,
+            response_time_ms=int((time.monotonic() - start_time) * 1000),
+            ip_address=client_ip,
+            user_agent=user_agent,
+            tool_used="equal_value_routing",
         )
         return HTMLResponse(content=user_bubble_html + assistant_html)
 

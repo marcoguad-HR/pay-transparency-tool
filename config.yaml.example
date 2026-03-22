@@ -20,3 +20,74 @@ rag:
   confidence_threshold: 0.6
   fusion_weight: 0.5                  # 0.0=solo vettoriale, 1.0=solo BM25
   query_transform_enabled: false      # Step-back prompting (costa 1 LLM call extra)
+
+# --- Equal Value Comparator (Art. 4(4) Direttiva EU 2023/970) ---
+# Sotto-fattori configurabili: aggiornare quando EIGE pubblica il toolkit (26 mar 2026)
+equal_value:
+  threshold_equal: 10                 # % max differenza per "pari valore"
+  threshold_maybe: 20                 # % max per "potenzialmente comparabile"
+  categories:
+    skills:
+      weight: 0.25
+      label: "Competenze"
+      factors:
+        - id: S1
+          label: "Istruzione/qualifiche richieste"
+          description: "Livello di istruzione formale richiesto dal ruolo"
+        - id: S2
+          label: "Esperienza richiesta"
+          description: "Anni di esperienza e complessita' richiesta"
+        - id: S3
+          label: "Conoscenze tecniche/specialistiche"
+          description: "Competenze tecniche, certificazioni, know-how specifico"
+        - id: S4
+          label: "Capacita' interpersonali e comunicative"
+          description: "Negoziazione, leadership, gestione relazioni"
+    effort:
+      weight: 0.25
+      label: "Impegno"
+      factors:
+        - id: E1
+          label: "Impegno fisico"
+          description: "Sforzo fisico richiesto dal ruolo"
+        - id: E2
+          label: "Concentrazione mentale"
+          description: "Complessita' cognitiva e problem-solving richiesto"
+        - id: E3
+          label: "Impegno emotivo"
+          description: "Gestione stress emotivo, relazioni difficili, empatia"
+        - id: E4
+          label: "Multi-tasking / pressione sui tempi"
+          description: "Gestione simultanea di attivita' e deadline"
+    responsibility:
+      weight: 0.25
+      label: "Responsabilita'"
+      factors:
+        - id: R1
+          label: "Supervisione di persone"
+          description: "Numero e complessita' dei riporti diretti/indiretti"
+        - id: R2
+          label: "Impatto finanziario"
+          description: "Gestione budget, impatto su ricavi/costi"
+        - id: R3
+          label: "Responsabilita' per il benessere altrui"
+          description: "Sicurezza, salute, benessere di persone"
+        - id: R4
+          label: "Gestione dati sensibili"
+          description: "Riservatezza, dati personali, informazioni strategiche"
+    working_conditions:
+      weight: 0.25
+      label: "Condizioni di lavoro"
+      factors:
+        - id: W1
+          label: "Ambiente fisico / rischi"
+          description: "Esposizione a rischi fisici, rumore, temperature"
+        - id: W2
+          label: "Stress psicologico"
+          description: "Esposizione a conflitti, pressione, burnout"
+        - id: W3
+          label: "Orari disagiati"
+          description: "Turni, reperibilita', lavoro notturno/festivo"
+        - id: W4
+          label: "Trasferte / mobilita'"
+          description: "Frequenza e durata di spostamenti richiesti"

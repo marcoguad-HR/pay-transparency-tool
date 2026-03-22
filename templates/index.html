@@ -43,6 +43,20 @@
                     </svg>
                     Analisi Dati
                 </button>
+                <button id="tab-comparatore"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="panel-comparatore"
+                        onclick="switchTab('comparatore')"
+                        class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-150 text-gray-500 hover:text-gray-700">
+                    <svg class="w-[15px] h-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M16 3h5v5"></path>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <path d="M8 21H3v-5"></path>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                    Comparatore
+                </button>
             </div>
         </nav>
 
@@ -132,6 +146,10 @@
                     <button onclick="switchTab('analisi')"
                             class="px-4 py-2 rounded-full border border-violet-200 bg-violet-50 text-sm text-violet-700 hover:bg-violet-100 hover:border-violet-300 active:bg-violet-200 transition-colors shadow-sm cursor-pointer">
                         Analizza i tuoi dati retributivi
+                    </button>
+                    <button onclick="switchTab('comparatore')"
+                            class="px-4 py-2 rounded-full border border-cyan-200 bg-cyan-50 text-sm text-cyan-700 hover:bg-cyan-100 hover:border-cyan-300 active:bg-cyan-200 transition-colors shadow-sm cursor-pointer">
+                        Confronta due ruoli (pari valore)
                     </button>
                 </div>
 
@@ -301,6 +319,22 @@
 
         </div><!-- /#panel-analisi -->
 
+        <!-- ============================================================
+             PANEL: COMPARATORE PARI VALORE
+             ============================================================ -->
+        <div id="panel-comparatore"
+             role="tabpanel"
+             aria-labelledby="tab-comparatore"
+             class="absolute top-14 inset-x-0 bottom-0 flex flex-col hidden">
+
+            <main class="flex-1 min-h-0 overflow-y-auto px-4 py-6 pb-28 max-w-4xl mx-auto w-full">
+                <div id="equal-value-result">
+                    {% include "partials/equal_value_form.html" %}
+                </div>
+            </main>
+
+        </div><!-- /#panel-comparatore -->
+
     </div><!-- /panels container -->
 
     <!-- ================================================================
@@ -399,7 +433,7 @@
 <script>
     // --- Tab switching ---
     function switchTab(tab) {
-        var tabs = ['assistente', 'analisi'];
+        var tabs = ['assistente', 'analisi', 'comparatore'];
         tabs.forEach(function(t) {
             var panel  = document.getElementById('panel-' + t);
             var btn    = document.getElementById('tab-' + t);
