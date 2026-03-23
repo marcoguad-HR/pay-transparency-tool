@@ -1,9 +1,38 @@
 """
-Test per parse_llm_scores() — parsing output LLM per suggerimento punteggi SERW.
-Testa solo la funzione di parsing, non la chiamata LLM.
+Test per suggest_scores — parsing output LLM e composizione description.
 """
 import pytest
-from src.web.api.suggest_scores import parse_llm_scores
+from src.web.api.suggest_scores import parse_llm_scores, build_description
+
+
+class TestBuildDescription:
+    """Test per la composizione della description da role_name + job_description."""
+
+    def test_name_only(self):
+        """Solo nome ruolo → description valida."""
+        result = build_description("HR Manager", "")
+        assert result == "HR Manager"
+
+    def test_name_and_jd(self):
+        """Nome + JD → concatenati."""
+        result = build_description("HR Manager", "Gestisce le risorse umane")
+        assert "HR Manager" in result
+        assert "Gestisce le risorse umane" in result
+
+    def test_jd_only(self):
+        """Solo JD → description valida."""
+        result = build_description("", "Gestisce le risorse umane e i processi di selezione")
+        assert result == "Gestisce le risorse umane e i processi di selezione"
+
+    def test_both_empty_raises(self):
+        """Nessun input → ValueError."""
+        with pytest.raises(ValueError):
+            build_description("", "")
+
+    def test_whitespace_only_raises(self):
+        """Solo spazi → ValueError."""
+        with pytest.raises(ValueError):
+            build_description("  ", "  ")
 
 
 class TestParseLlmScores:

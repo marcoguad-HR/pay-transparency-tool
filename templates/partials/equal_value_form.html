@@ -73,6 +73,7 @@
     }
     .suggest-loading .suggest-spinner { display: inline-block; }
     .suggest-loading .suggest-label { display: none; }
+    .suggest-error { background-color: #dc2626 !important; }
 
     @media (prefers-reduced-motion: reduce) {
         input[type="range"].serw-slider::-webkit-slider-thumb,
@@ -678,10 +679,12 @@
             return res.json();
         })
         .then(function(data) {
-            // data atteso: { S1: 4, S2: 3, ..., W4: 2 }
+            if (data.error) throw new Error(data.error);
+            // data atteso: { scores: { S1: 4, S2: 3, ..., W4: 2 } }
+            var scores = data.scores || data;
             var factors = ['S1','S2','S3','S4','E1','E2','E3','E4','R1','R2','R3','R4','W1','W2','W3','W4'];
             factors.forEach(function(f) {
-                if (data[f] !== undefined) {
+                if (scores[f] !== undefined) {
                     var slider = document.getElementById('role_' + role + '_' + f);
                     if (slider) {
                         slider.value = data[f];
@@ -692,6 +695,16 @@
         })
         .catch(function(err) {
             console.error('Errore suggest-scores:', err);
+            var label = btn.querySelector('.suggest-label');
+            if (label) {
+                var original = label.textContent;
+                label.textContent = 'Errore — riprova';
+                btn.classList.add('suggest-error');
+                setTimeout(function() {
+                    label.textContent = original;
+                    btn.classList.remove('suggest-error');
+                }, 3000);
+            }
         })
         .finally(function() {
             btn.classList.remove('suggest-loading');

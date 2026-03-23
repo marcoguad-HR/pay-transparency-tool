@@ -47,10 +47,34 @@ _EXPECTED_KEYS = {"S1", "S2", "S3", "S4", "E1", "E2", "E3", "E4",
                   "R1", "R2", "R3", "R4", "W1", "W2", "W3", "W4"}
 
 
+def build_description(role_name: str, job_description: str) -> str:
+    """Compone la description da nome ruolo e JD opzionale."""
+    role_name = role_name.strip()
+    job_description = job_description.strip()
+    if not role_name and not job_description:
+        raise ValueError("Inserisci almeno il nome del ruolo o una job description.")
+    parts = []
+    if role_name:
+        parts.append(role_name)
+    if job_description:
+        parts.append(job_description)
+    return "\n\n".join(parts)
+
+
 @router.post("/api/suggest-scores")
-async def suggest_scores(request: Request, description: str = Form(..., min_length=10)):
+async def suggest_scores(
+    request: Request,
+    role_name: str = Form(""),
+    job_description: str = Form(""),
+):
     """Analizza JD e suggerisce punteggi SERW via LLM."""
     import asyncio
+
+    try:
+        description = build_description(role_name, job_description)
+    except ValueError as e:
+        return JSONResponse(content={"error": str(e)}, status_code=400)
+
     logger.info(f"Suggest scores request: '{description[:80]}...'")
 
     try:

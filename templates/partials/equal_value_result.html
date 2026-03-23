@@ -203,83 +203,89 @@
 </div>
 
 <!-- Chart.js radar chart -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
 (function() {
-    var ctx = document.getElementById('radar-chart');
-    if (!ctx) return;
+    function initRadarChart() {
+        var ctx = document.getElementById('radar-chart');
+        if (!ctx) return;
 
-    // Dati dalle variabili Jinja2
-    var scoresA = [
-        {% for cs in result.category_scores_a %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
-    ];
-    var scoresB = [
-        {% for cs in result.category_scores_b %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
-    ];
+        var scoresA = [
+            {% for cs in result.category_scores_a %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
+        var scoresB = [
+            {% for cs in result.category_scores_b %}{{ cs.score }}{% if not loop.last %}, {% endif %}{% endfor %}
+        ];
 
-    new Chart(ctx, {
-        type: 'radar',
-        data: {
-            labels: ['Competenze', 'Impegno', 'Responsabilita', 'Condizioni'],
-            datasets: [{
-                label: '{{ result.role_a.name|e }}',
-                data: scoresA,
-                borderColor: 'rgba(8, 145, 178, 1)',
-                backgroundColor: 'rgba(8, 145, 178, 0.2)',
-                pointBackgroundColor: 'rgba(8, 145, 178, 1)',
-                pointBorderColor: '#fff',
-                pointRadius: 4,
-                borderWidth: 2
-            }, {
-                label: '{{ result.role_b.name|e }}',
-                data: scoresB,
-                borderColor: 'rgba(245, 158, 11, 1)',
-                backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                pointBackgroundColor: 'rgba(245, 158, 11, 1)',
-                pointBorderColor: '#fff',
-                pointRadius: 4,
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                r: {
-                    min: 0,
-                    max: 20,
-                    ticks: {
-                        stepSize: 5,
-                        font: { size: 11 },
-                        backdropColor: 'transparent'
-                    },
-                    pointLabels: {
-                        font: { size: 12, weight: '600' },
-                        color: '#164E63'
-                    },
-                    grid: {
-                        color: 'rgba(0,0,0,0.06)'
-                    },
-                    angleLines: {
-                        color: 'rgba(0,0,0,0.06)'
-                    }
-                }
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Competenze', 'Impegno', 'Responsabilita', 'Condizioni'],
+                datasets: [{
+                    label: '{{ result.role_a.name|e }}',
+                    data: scoresA,
+                    borderColor: 'rgba(8, 145, 178, 1)',
+                    backgroundColor: 'rgba(8, 145, 178, 0.2)',
+                    pointBackgroundColor: 'rgba(8, 145, 178, 1)',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4,
+                    borderWidth: 2
+                }, {
+                    label: '{{ result.role_b.name|e }}',
+                    data: scoresB,
+                    borderColor: 'rgba(245, 158, 11, 1)',
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    pointBackgroundColor: 'rgba(245, 158, 11, 1)',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4,
+                    borderWidth: 2
+                }]
             },
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 16,
-                        font: { size: 12 }
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    r: {
+                        min: 0,
+                        max: 20,
+                        ticks: {
+                            stepSize: 5,
+                            font: { size: 11 },
+                            backdropColor: 'transparent'
+                        },
+                        pointLabels: {
+                            font: { size: 12, weight: '600' },
+                            color: '#164E63'
+                        },
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                        angleLines: { color: 'rgba(0,0,0,0.06)' }
                     }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 16,
+                            font: { size: 12 }
+                        }
+                    }
+                },
+                animation: {
+                    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
                 }
-            },
-            animation: {
-                duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
             }
-        }
-    });
+        });
+    }
+
+    // Chart.js potrebbe non essere ancora caricato (HTMX inject)
+    if (typeof Chart !== 'undefined') {
+        initRadarChart();
+    } else {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4';
+        script.onload = initRadarChart;
+        document.head.appendChild(script);
+    }
 })();
 </script>
 
